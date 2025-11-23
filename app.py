@@ -398,7 +398,7 @@ def call_gemini_analysis(route_data_str):
     """
     try:
         # Devuelve un mensaje por defecto para mantener compatibilidad con la UI
-        return "Análisis IA deshabilitado: OpenRouter eliminado del proyecto."
+        return "Análisis."
     except Exception as e:
         logger.error("call_gemini_analysis interno falló: %s", e)
         return "Análisis IA no disponible."
