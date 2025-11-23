@@ -1,18 +1,69 @@
-# TakeYouOff — Qué hace
+# TakeYouOff ✈️📍
 
-TakeYouOff es una aplicación para monitorizar tráfico aéreo, optimizar rutas y generar alertas de voz.
+TakeYouOff es una aplicación web para monitoreo y soporte de planificación de vuelos: visualiza tráfico aéreo, calcula rutas optimizadas y emite alertas de voz en tiempo real. Está pensada como un prototipo extensible para integraciones de TTS (ElevenLabs) y modelos generativos (Gemini / Google Generative AI).
 
-Resumen de funcionalidades:
-- Monitoriza vuelos en una zona (modo mock o usando OpenSky API).
-- Calcula rutas optimizadas entre origen y destino considerando restricciones.
-- Detecta conflictos y zonas restringidas y genera alertas.
-- Produce audio de alerta usando ElevenLabs TTS.
-- Provee una interfaz web interactiva con mapa (Leaflet) y endpoints REST para integrar análisis y TTS.
+**Qué hace**
+- **Monitorea vuelos** en una zona (mock o usando la API de OpenSky).
+- **Calcula rutas optimizadas** entre origen y destino teniendo en cuenta restricciones.
+- **Detecta conflictos y zonas restringidas** y genera notificaciones/alertas.
+- **Genera audio de alerta** usando ElevenLabs (TTS) y lo reproduce en la interfaz web.
+- **Soporta análisis IA**: integración con un microservicio de IA o con la API de Gemini directamente si está configurada.
+
+**Qué implementamos en este repo (resumen de cambios recientes)**
+- 🔊 **Arreglo de reproducción de audio (ElevenLabs)**: se detectó que el servidor generaba audio (HTTP 200) pero el frontend no lo reproducía. Se parcheó `templates/index.html` para invocar la función `playAlertAudio(...)` cuando la API devuelve `audio_alert_data` o `audio_alert_url`, permitiendo la reproducción en el navegador (sujeto a restricciones de autoplay del navegador).
+- 🤖 **Integración de IA (Gemini)**: añadimos soporte flexible para análisis con Gemini:
+	- Un microservicio opcional `ai_gemini_microservice/` (Flask) con endpoints `/analyze` y `/health`. Diseñado para modo `DEV_MOCK` y para usar el SDK de Google Generative AI si está disponible.
+	- Llamada directa desde `app.py` al cliente de Gemini cuando `GOOGLE_API_KEY` está presente; si el SDK no está instalado o falla, `app.py` hace fallback hacia el microservicio y finalmente hacia un resumen humano legible.
+- 📄 **Documentación y guía**: se añadieron `GEMINI_INTEGRATION.md` con recomendaciones de prompts y fallbacks, y el README ahora describe el proyecto y los pasos esenciales.
+
+**Archivos relevantes modificados / añadidos**
+- `app.py` — servidor principal: lógica de optimización, TTS (ElevenLabs) y la función `call_gemini_analysis()` que intenta: (1) cliente Gemini directo → (2) microservicio → (3) fallback.
+- `templates/index.html` — frontend: se añadió la llamada a `playAlertAudio` tras la respuesta de `optimize-route`.
+- `services/elevenlabs_service.py` (existente) — wrapper/uso del SDK de ElevenLabs.
+- `ai_gemini_microservice/` — microservicio auxiliar con `app.py`, `requirements.txt`, `Dockerfile` y README (opcional, se puede ejecutar sin Docker).
+- `GEMINI_INTEGRATION.md` — guía técnica para prompts, límites y estrategias de fallback.
+
+**Variables de entorno importantes**
+- `ELEVENLABS_API_KEY` — clave para generar TTS con ElevenLabs.
+- `GOOGLE_API_KEY` — clave para usar Google Generative AI (Gemini) desde el SDK.
+- `GEMINI_MICROSERVICE_URL` — URL del microservicio (por defecto `http://127.0.0.1:6000/analyze`).
+- `DEV_MOCK` — cuando está activado, muchas respuestas de IA y de vuelos se simulan para pruebas.
+
+**Cómo ejecutar (rápido)**
+1. Crear entorno virtual y activar (Windows PowerShell):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+2. Definir variables de entorno mínimas en la misma sesión (PowerShell):
+
+```powershell
+$env:ELEVENLABS_API_KEY = 'sk-...'
+# Opcional si quieres análisis real con Gemini:
+$env:GOOGLE_API_KEY = 'AIza...'
+```
+
+3. Ejecutar la app:
+
+```powershell
+python app.py
+```
+
+Si prefieres la ruta del microservicio de IA sin Docker: abre otra terminal, activa su venv, instala `ai_gemini_microservice/requirements.txt` y lanza `python ai_gemini_microservice/app.py`.
+
+**Notas importantes de seguridad y recomendaciones** 🔐
+- Si expusiste claves (por ejemplo `GOOGLE_API_KEY`) en esta conversación o en el historial, revócalas y genera nuevas. Nunca subas secretos al repo.
+- Para despliegues en producción, usa un gestor seguro de secretos (Azure Key Vault, AWS Secrets Manager, HashiCorp Vault, etc.).
+
+**Ideas / próximos pasos** ✨
+- Integrar persistencia (SQLite o una DB ligera) para logs y trazas de alertas.
+- Añadir autenticación y control de accesos en la UI/API.
+- Mejorar experiencia de audio (pre-caching, indicación visual cuando audio no puede reproducirse por autoplay).
+
+¿Quieres que actualice este README con instrucciones más específicas (por ejemplo: pasos para Windows, Linux, o un script de PowerShell para iniciar todo)? Si quieres, también puedo crear un pequeño script `start_local.ps1` que prepare el entorno y arranque el servidor y (opcionalmente) el microservicio.
+
 ---
-
-
-> Nota: La integración con OpenRouter fue removida del proyecto. Las llamadas a OpenRouter se han eliminado y las funciones relacionadas devuelven mensajes por defecto o usan alternativas (por ejemplo, geocoding mediante Nominatim). Si necesitas volver a integrar otro proveedor de IA, actualiza `app.py` con la nueva implementación.
-
-> Nota: La integración con Wolfram (wolframclient / WolframKernel) también fue removida. La lógica de optimización en `app.py` ahora utiliza una implementación en Python puro. Se eliminó el script de configuración de Wolfram (`setup_wolfram.py`) y se actualizaron las plantillas y mensajes para no mencionar Wolfram.
-
-> Nota: La integración con MongoDB fue eliminada. Cualquier código que antes persistía datos en MongoDB ha sido modificado para eliminar dependencias (`pymongo`) y ya no intenta conectarse a una base de datos. Si quieres restaurar persistencia, ofrece una alternativa (archivo local, SQLite, o volver a integrar MongoDB) y puedo implementarla.
+_Archivo generado y actualizado por el equipo de desarrollo. Si falta algo o quieres que lo haga más técnico (comandos exactos para CI/CD, Docker Compose, o empaquetado), dime y lo añado._
