@@ -1,56 +1,63 @@
-# TakeYouOff ✈️📍
 
-TakeYouOff es una aplicación web para monitoreo y soporte de planificación de vuelos: visualiza tráfico aéreo, calcula rutas optimizadas y emite alertas de voz en tiempo real. Está pensada como un prototipo extensible para integraciones de TTS (ElevenLabs) y modelos generativos (Gemini / Google Generative AI).
+## ✈️ TakeYouOff: Monitoreo y Soporte de Vuelos Impulsado por IA
 
-**Qué hace**
-- **Monitorea vuelos** en una zona (mock o usando la API de OpenSky).
-- **Calcula rutas optimizadas** entre origen y destino teniendo en cuenta restricciones.
-- **Detecta conflictos y zonas restringidas** y genera notificaciones/alertas.
-- **Genera audio de alerta** usando ElevenLabs (TTS) y lo reproduce en la interfaz web.
-- **Soporta análisis IA**: integración con un microservicio de IA o con la API de Gemini directamente si está configurada.
+TakeYouOff es una aplicación web prototipo diseñada para el **monitoreo en tiempo real, la planificación optimizada de rutas y la emisión de alertas de voz** en el tráfico aéreo. Este proyecto sirve como un *sandbox* extensible para la integración de modelos generativos (Gemini / Google Generative AI) y servicios de Texto-a-Voz (ElevenLabs).
 
-**Qué implementamos en este repo (resumen de cambios recientes)**
-- 🔊 **Arreglo de reproducción de audio (ElevenLabs)**: se detectó que el servidor generaba audio (HTTP 200) pero el frontend no lo reproducía. Se parcheó `templates/index.html` para invocar la función `playAlertAudio(...)` cuando la API devuelve `audio_alert_data` o `audio_alert_url`, permitiendo la reproducción en el navegador (sujeto a restricciones de autoplay del navegador).
-- 🤖 **Integración de IA (Gemini)**: añadimos soporte flexible para análisis con Gemini:
-	- Un microservicio opcional `ai_gemini_microservice/` (Flask) con endpoints `/analyze` y `/health`. Diseñado para modo `DEV_MOCK` y para usar el SDK de Google Generative AI si está disponible.
-	- Llamada directa desde `app.py` al cliente de Gemini cuando `GOOGLE_API_KEY` está presente; si el SDK no está instalado o falla, `app.py` hace fallback hacia el microservicio y finalmente hacia un resumen humano legible.
-- 📄 **Documentación y guía**: se añadieron `GEMINI_INTEGRATION.md` con recomendaciones de prompts y fallbacks, y el README ahora describe el proyecto y los pasos esenciales.
+### 🌟 Características Principales
 
-**Archivos relevantes **
-- `app.py` — servidor principal: lógica de optimización, TTS (ElevenLabs) y la función `call_gemini_analysis()` que intenta: (1) cliente Gemini directo → (2) microservicio → (3) fallback.
-- `templates/index.html` — frontend: se añadió la llamada a `playAlertAudio` tras la respuesta de `optimize-route`.
-- `services/elevenlabs_service.py` (existente) — wrapper/uso del SDK de ElevenLabs.
-- `ai_gemini_microservice/` — microservicio auxiliar con `app.py`, `requirements.txt`, `Dockerfile` y README (opcional, se puede ejecutar sin Docker).
-- `GEMINI_INTEGRATION.md` — guía técnica para prompts, límites y estrategias de fallback.
+| Característica | Descripción | Tecnologías Clave |
+| :--- | :--- | :--- |
+| **🗺️ Visualización de Tráfico** | Monitoreo de vuelos activos en una zona geográfica específica (usando datos simulados o la API de OpenSky). | OpenSky API, Leaflet |
+| **📐 Optimización de Rutas** | Cálculo de la ruta de vuelo más eficiente entre origen y destino, considerando restricciones. | Python/Flask |
+| **🚨 Alertas en Tiempo Real** | Detección de conflictos, zonas restringidas y generación inmediata de notificaciones. | Python/Flask |
+| **🔊 Alertas de Voz (TTS)** | Generación de audio de alerta dinámico usando Texto-a-Voz de ElevenLabs y reproducción en la interfaz. | ElevenLabs SDK |
+| **🧠 Análisis de Vuelo con IA** | Soporte flexible para análisis complejos y resúmenes de incidentes utilizando Gemini. | Google Generative AI (Gemini) |
 
-**Variables de entorno importantes**
-- `ELEVENLABS_API_KEY` — clave para generar TTS con ElevenLabs.
-- `GOOGLE_API_KEY` — clave para usar Google Generative AI (Gemini) desde el SDK.
-- `DEV_MOCK` — cuando está activado, muchas respuestas de IA y de vuelos se simulan para pruebas.
+### 🛠️ Implementaciones Recientes (v0.2.x)
 
+Hemos enfocado las últimas actualizaciones en la robustez del audio y la flexibilidad de la integración de la IA:
 
-**Ideas / próximos pasos** ✨
-- Integrar persistencia (SQLite o una DB ligera) para logs y trazas de alertas.
-- Añadir autenticación y control de accesos en la UI/API.
-- Mejorar experiencia de audio (pre-caching, indicación visual cuando audio no puede reproducirse por autoplay).
+* **🤖 Integración de Gemini Flexible:**
+    * **Prioridad 1:** Llamada directa al cliente de Gemini (`google-generativeai` SDK) desde `app.py` si la `GOOGLE_API_KEY` está configurada.
+    * **Prioridad 2 (Fallback):** Si la clave no existe o falla el SDK, la aplicación recurre a un microservicio auxiliar (`ai_gemini_microservice/`).
+    * **Prioridad 3 (Fallback Final):** Si todo lo anterior falla, se genera un resumen humano legible.
+* **🔊 Parche de Reproducción de Audio:** Se corrigió un error crítico en `templates/index.html`. El *frontend* ahora invoca correctamente la función `playAlertAudio(...)` al recibir `audio_alert_data` o `audio_alert_url` en la respuesta del servidor, permitiendo la reproducción de las alertas (sujeto a restricciones de *autoplay* del navegador).
+* **📄 Documentación Mejorada:** Se añadió `GEMINI_INTEGRATION.md` con guías sobre prompts, fallbacks y límites. El `README` principal ahora es más descriptivo y claro.
 
-<<<<<<< HEAD
+### ⚙️ Arquitectura del Proyecto
+
+| Archivo/Directorio | Propósito |
+| :--- | :--- |
+| `app.py` | Servidor principal (Flask). Contiene la lógica central de optimización, TTS y la función `call_gemini_analysis()`. |
+| `templates/index.html` | Interfaz de usuario (frontend) con el mapa Leaflet, lógica de alerta y reproducción de audio. |
+| `services/` | Contiene wrappers para APIs externas, como `elevenlabs_service.py`. |
+| `ai_gemini_microservice/` | Microservicio opcional (Flask) que expone endpoints `/analyze` y `/health` para el análisis IA en modo *fallback*. |
+| `GEMINI_INTEGRATION.md` | Guía técnica para desarrolladores sobre la integración del modelo Gemini. |
+
+### 🔑 Configuración de Variables de Entorno
+
+Para ejecutar el proyecto con todas las funcionalidades, son necesarias las siguientes variables de entorno:
+
+| Variable | Descripción | Uso |
+| :--- | :--- | :--- |
+| `ELEVENLABS_API_KEY` | Clave para el servicio de Texto-a-Voz (TTS) de ElevenLabs. | `services/elevenlabs_service.py` |
+| `GOOGLE_API_KEY` | Clave para el SDK de Google Generative AI (Gemini). | `app.py` (Llamada directa) |
+| `DEV_MOCK` | Activa respuestas simuladas para vuelos y análisis IA, útil para pruebas locales sin consumir APIs. | Lógica de `app.py` |
+
+### ✨ Próximos Pasos e Ideas
+
+1.  **💾 Persistencia de Datos:** Integrar una base de datos ligera (ej. SQLite) para el registro de logs, trazas de alertas e historial de vuelos analizados.
+2.  **🔒 Seguridad:** Implementar autenticación y control de accesos en la UI y la API principal.
+3.  **🔊 Experiencia de Audio:** Mejorar la UX del audio con *pre-caching* y añadir una indicación visual clara cuando la reproducción automática es bloqueada por el navegador.
+
+### 🌐 Tecnologías Utilizadas
+
+* **Backend:** Python 3.10+, Flask, Requests.
+* **IA/TTS:** Google Generative AI (`google-generativeai`), ElevenLabs SDK (`elevenlabs`).
+* **Frontend:** JavaScript, HTML, CSS, Bootstrap, Leaflet (mapa), Chart.js (gráficos).
+* **Fuentes de Datos:** OpenSky API, Nominatim (geocoding).
+* **Despliegue:** Docker (opcional para microservicio).
+
 ---
 
-**Tecnologías usadas**
-- Python 3.10+
-- Flask
-- ElevenLabs (`elevenlabs` Python SDK)
-- Google Generative AI (`google-generativeai`)
-- Requests (HTTP)
-- Leaflet (mapa en frontend)
-- Bootstrap (estilos)
-- Chart.js (gráficos)
-- OpenSky API (fuente de tráfico aéreo)
-- Nominatim (geocoding)
-- JavaScript, HTML, CSS
-- Docker (opcional, para microservicio)
-- PowerShell (scripts de inicio en Windows)
-- `pip` / entornos virtuales (`venv`)
-=======
->>>>>>> fbfeb3fdd97c59867afe7113f26a8ce19a632432
+¿Qué te parece? ¿Hay alguna sección que te gustaría expandir o cambiar el enfoque?
