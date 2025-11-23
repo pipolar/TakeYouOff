@@ -391,17 +391,138 @@ if _HAS_CORS:
 
 def call_gemini_analysis(route_data_str):
     """
-    Stub para análisis de IA: OpenRouter fue removido del proyecto.
-    Devuelve un texto informativo que puede ser mostrado en la UI.
-    Si en el futuro quieres conectar otro proveedor, reemplaza esta
-    implementación por la integración correspondiente.
+    Llama al microservicio de Gemini si está disponible.
+    Construye un prompt estructurado si recibe datos JSON y devuelve
+    un resultado legible. Si la llamada falla, genera un fallback humano.
     """
     try:
-        # Devuelve un mensaje por defecto para mantener compatibilidad con la UI
-        return "Análisis."
+        # Intentar parsear JSON si el input es un string JSON
+        parsed = None
+        try:
+            if isinstance(route_data_str, (dict, list)):
+                parsed = route_data_str
+            else:
+                parsed = json.loads(route_data_str)
+        except Exception:
+            parsed = None
+
+        # Construir prompt
+        if isinstance(parsed, dict):
+            km = parsed.get('RutaTotalKM') or parsed.get('ruta_km') or parsed.get('RutaTotalKm') or 0
+            n_restr = parsed.get('NumeroRestricciones') or parsed.get('numero_restricciones') or parsed.get('restricciones') or 0
+            origen = parsed.get('PuntoOrigen') or parsed.get('origen') or 'Desconocido'
+            destino = parsed.get('PuntoDestino') or parsed.get('destino') or 'Desconocido'
+            has_intermediate = parsed.get('RutaTienePuntosIntermedios') or parsed.get('ruta_tiene_puntos_intermedios') or False
+            prompt_text = (
+                f"Eres un asistente técnico y conciso experto en rutas aéreas.\n"
+                f"Contexto: Distancia total: {km} km. Número de restricciones: {n_restr}. Origen: {origen}. Destino: {destino}. "
+                f"Tiene puntos intermedios: {bool(has_intermediate)}.\n"
+                "Tarea: 1) Resume en 1-2 frases el riesgo principal. "
+                "2) Provee 3 acciones concretas y priorizadas (máx. 60 caracteres cada una). "
+                "3) Devuelve una severidad (low/medium/high).\n"
+                "Formato de salida: devuelve SOLO texto legible o JSON con keys summary, actions (array), severity."
+            )
+        else:
+            prompt_text = str(route_data_str)
+
+        # Primero intentamos llamar directamente a la API de Gemini (si está configurada)
+        GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
+        GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-1.0')
+        GEMINI_MAX_RETRIES = int(os.environ.get('GEMINI_MAX_RETRIES', '2'))
+        GEMINI_MAX_TOKENS = int(os.environ.get('GEMINI_MAX_TOKENS', '512'))
+        GEMINI_TEMPERATURE = float(os.environ.get('GEMINI_TEMPERATURE', '0.2'))
+
+        if GOOGLE_API_KEY and 'genai' in globals() and not DEV_MOCK:
+            try:
+                try:
+                    genai.configure(api_key=GOOGLE_API_KEY)
+                except Exception:
+                    # genai.configure may raise if already configured or not supported
+                    pass
+
+                attempt = 0
+                while attempt < GEMINI_MAX_RETRIES:
+                    attempt += 1
+                    try:
+                        # Llamada por defecto al método generate_text; adaptarse según versión del SDK
+                        resp = genai.generate_text(model=GEMINI_MODEL, prompt=prompt_text, max_output_tokens=GEMINI_MAX_TOKENS, temperature=GEMINI_TEMPERATURE)
+                        # Extraer texto de distintas formas según la forma de la respuesta
+                        text = None
+                        if hasattr(resp, 'text'):
+                            text = getattr(resp, 'text')
+                        elif isinstance(resp, dict):
+                            if 'candidates' in resp and resp['candidates']:
+                                c0 = resp['candidates'][0]
+                                if isinstance(c0, dict) and ('output' in c0 or 'content' in c0):
+                                    text = c0.get('output') or c0.get('content')
+                            if not text and 'output' in resp:
+                                out = resp['output']
+                                if isinstance(out, list) and out:
+                                    first = out[0]
+                                    if isinstance(first, dict) and 'content' in first:
+                                        text = first['content']
+                                    else:
+                                        text = str(first)
+                                else:
+                                    text = str(out)
+                        else:
+                            text = str(resp)
+
+                        text = (text or '').strip()
+                        if text:
+                            return text
+                    except Exception as e:
+                        logger.warning('call_gemini_analysis: genai call failed attempt %d: %s', attempt, e)
+                        time.sleep(1 * attempt)
+            except Exception as e:
+                logger.warning('call_gemini_analysis: error configuring/using genai: %s', e)
+
+        # Si no pudimos usar genai (o está en DEV_MOCK), intentar microservicio local si existe
+        url = os.environ.get('GEMINI_MICROSERVICE_URL', 'http://127.0.0.1:6000/analyze')
+        payload = {
+            'prompt': prompt_text,
+            'max_tokens': 512,
+            'temperature': 0.2
+        }
+        timeout = float(os.environ.get('GEMINI_MICROSERVICE_TIMEOUT', 6.0))
+        try:
+            r = requests.post(url, json=payload, timeout=timeout)
+            r.raise_for_status()
+            j = r.json()
+            # Devolver campos comunes si existen
+            if isinstance(j, dict) and j.get('analysis'):
+                return j.get('analysis')
+            if isinstance(j, dict) and j.get('result'):
+                return j.get('result')
+            if isinstance(j, dict) and j.get('output'):
+                return j.get('output')
+            if isinstance(j, dict) and j.get('error'):
+                logger.warning('Gemini microservice returned error: %s', j.get('error'))
+        except Exception as e:
+            logger.warning('call_gemini_analysis: microservice call failed: %s', e)
+
+        # Fallback local: mensaje humano legible
+        logger.info('call_gemini_analysis: usando fallback de análisis.')
+        try:
+            if isinstance(parsed, dict):
+                km_val = km
+                n_val = n_restr
+                severity_hint = 'ALTO' if (km_val and float(km_val) > 500) or int(n_val) >= 3 else 'MEDIO' if int(n_val) >= 2 else 'BAJO'
+                recs = [
+                    'Verificar puntos intermedios y restricciones',
+                    'Consultar control aéreo local antes del vuelo',
+                    'Revisar plan de combustible y aeropuertos alternos'
+                ]
+                rec_text = ' | '.join(recs)
+                return f"Análisis (fallback): Distancia {km_val} km; Restricciones {n_val}; Severidad: {severity_hint}. Recomendaciones: {rec_text}"
+            else:
+                snippet = str(route_data_str)[:200].replace('\n', ' ')
+                return f"Análisis (fallback): {snippet}"
+        except Exception:
+            return 'Análisis IA no disponible.'
     except Exception as e:
-        logger.error("call_gemini_analysis interno falló: %s", e)
-        return "Análisis IA no disponible."
+        logger.exception('call_gemini_analysis fallo inesperado: %s', e)
+        return 'Análisis IA no disponible.'
 
 
 def call_geocode_address(address):
