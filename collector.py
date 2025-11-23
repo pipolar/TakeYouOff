@@ -5,12 +5,7 @@ import signal
 import sys
 import logging
 from typing import Optional
-from app import obtener_token, classify_flight, MONGODB_URI
-
-try:
-    from pymongo import MongoClient
-except Exception:
-    MongoClient = None
+from app import obtener_token, classify_flight
 
 import requests
 import os
@@ -29,22 +24,10 @@ LAT_MAX = 33.0
 LON_MIN = -118.0
 LON_MAX = -86.0
 
-# Conexión con MongoDB
+# Nota: Se ha eliminado la integración con MongoDB. El colector procesa
+# los datos y los muestra en logs, pero ya no intenta persistirlos en una DB.
 cliente = None
 db = None
-if MONGODB_URI and MongoClient is not None:
-    try:
-        cliente = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
-        cliente.server_info()
-        db = cliente.get_default_database()
-        logger.info("✅ Conectado a MongoDB correctamente.")
-    except Exception as e:
-        logger.warning(f"⚠️ No se pudo conectar a MongoDB: {e}")
-        cliente = None
-        db = None
-else:
-    if MONGODB_URI and MongoClient is None:
-        logger.warning("⚠️ pymongo no está instalado; el colector no podrá guardar datos.")
 
 
 def apagar(signum, frame):
@@ -74,7 +57,7 @@ def obtener_estados():
 
 
 def procesar_y_guardar(estados_json: dict):
-    """Procesa los datos de los vuelos y los guarda en MongoDB."""
+    """Procesa los datos de los vuelos. La persistencia en DB fue removida."""
     marca_tiempo = int(time.time())
     estados = estados_json.get("states", [])
     for estado in estados:
@@ -97,16 +80,10 @@ def procesar_y_guardar(estados_json: dict):
             "tipo": tipo,
             "fecha_captura": marca_tiempo,
         }
-        if db is not None:
-            try:
-                coleccion = db.get_collection("flights")
-                coleccion.update_one(
-                    {"icao24": icao24},
-                    {"$set": doc, "$currentDate": {"ultima_actualizacion": True}},
-                    upsert=True
-                )
-            except Exception as e:
-                logger.warning(f"⚠️ Error al escribir en la base de datos para {icao24}: {e}")
+        # Antes: se escribía en MongoDB. Actualmente la persistencia fue retirada
+        # para eliminar dependencias y configuraciones externas. De momento
+        # solo registramos la llegada de cada vuelo procesado.
+        logger.debug(f"Procesado vuelo {icao24} ({callsign}) -> {doc['latitud']}, {doc['longitud']}")
 
 
 def main():

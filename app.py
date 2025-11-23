@@ -4,8 +4,6 @@ import time
 import os
 import logging
 from flask import Flask, jsonify, render_template, request
-from wolframclient.evaluation import WolframLanguageSession
-from wolframclient.language import wl
 
 import os
 import requests
@@ -55,15 +53,11 @@ except Exception:
     logger.debug("python-dotenv no está disponible; usando variables de entorno del sistema.")
 
 
-# A. Wolfram Kernel Path (La ruta que encontraste y te funcionó)
-KERNEL_PATH = os.environ.get("WOLFRAM_KERNEL_PATH", r"C:\Program Files\Wolfram Research\Wolfram\14.3\WolframKernel.exe")
-
 # B. APIs Externas (Se recuperan de las variables de entorno)
 # Nota: OpenRouter fue removido del proyecto — las funciones que
-# dependían de él ahora devuelven resultados por defecto.
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
 
-# Modo de desarrollo: si se activa, el endpoint devuelve rutas mock sin necesitar Wolfram
+# Modo de desarrollo: si se activa, el endpoint devuelve rutas mock sin necesidad de un kernel externo
 DEV_MOCK = os.environ.get("DEV_MOCK", "0") == "1"
 
 # OpenSky credentials (opcional)
@@ -72,11 +66,7 @@ OPENSKY_CLIENT_SECRET = os.environ.get("OPENSKY_CLIENT_SECRET")
 
 
 # ===================================================================
-# 2. CONEXIÓN AL MOTOR DE WOLFRAM
-# ===================================================================
-
-# ===================================================================
-# 2. CONEXIÓN AL MOTOR DE WOLFRAM (usando implementación Python puro)
+# 2. Motor de optimización (implementación Python)
 # ===================================================================
 
 from math import radians, cos, sin, asin, sqrt
@@ -520,7 +510,7 @@ def optimize_route():
         destino_coords = resolve_location(destino_list)
         if not origen_coords or not destino_coords:
             return jsonify({"error": "No se pudieron resolver 'origen' o 'destino' a coordenadas válidas. Pueden ser listas [lat, lon] o direcciones."}), 400
-        logger.info("Llamando a optimize_route_wolfram...")
+        logger.info("Llamando al motor de optimización (optimize_route_wolfram)...")
         resolved_restrictions = []
         if isinstance(restricciones, (list, tuple)):
             for r in restricciones:
@@ -529,7 +519,7 @@ def optimize_route():
                     resolved_restrictions.append(rc)
         wolfram_result = optimize_route_wolfram(origen_coords, destino_coords, resolved_restrictions)
         if wolfram_result is None:
-            return jsonify({"error": "Motor Wolfram no respondió. Contacte al Modelador."}), 503
+            return jsonify({"error": "Motor de optimización no respondió. Contacte al Modelador."}), 503
         ruta_km = 0
         wolfram_result_dict = wolfram_result
         if isinstance(wolfram_result_dict, dict):

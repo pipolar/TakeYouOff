@@ -80,7 +80,7 @@ Pygments==2.19.1
 pyinstaller==6.12.0
 pyinstaller-hooks-contrib==2025.1
 pylance==0.24.1
-pymongo==4.15.3
+# pymongo removed: MongoDB integration eliminated from project
 pyparsing==3.2.1
 pyserial==3.5
 PySocks==1.7.1

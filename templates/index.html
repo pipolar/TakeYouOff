@@ -110,8 +110,8 @@
 
     <nav class="navbar navbar-dark bg-dark shadow-sm mb-4">
         <div class="container-fluid">
-            <a class="navbar-brand ms-2" href="#">✈️ TakeYouOff</a>
-            <span class="navbar-text text-white-50">Sky Monitoring | OpenSky + IA</span>
+            <a class="navbar-brand ms-2" href="#">TakeYouOff</a>
+            <span class="navbar-text text-white-50">Sky Monitoring</span>
             <span id="audio-indicator" class="ms-3 badge bg-secondary" style="display:none;">Audio habilitado</span>
         </div>
     </nav>
@@ -152,7 +152,7 @@
 
                         <!-- OpenSky Monitoring Section -->
                         <hr class="my-4">
-                        <h6 class="fw-bold">📡 Monitoreo OpenSky (CDMX)</h6>
+                        <h6 class="fw-bold"> Monitoreando</h6>
                         <button id="btn-start-monitoring" class="btn btn-info w-100 mb-2">Iniciar Monitoreo</button>
                         <button id="btn-stop-monitoring" class="btn btn-secondary w-100 mb-2" disabled>Detener Monitoreo</button>
                         <small class="text-muted">
@@ -164,10 +164,9 @@
 
                 <div class="card shadow mb-4">
                     <div class="card-header bg-secondary text-white fw-bold">
-                        🧠 Análisis de Riesgo (Gemini)
+                        Análisis de Riesgo
                     </div>
                     <div class="card-body">
-                        <p class="small text-muted">Explicabilidad del Modelo:</p>
                         <p id="gemini-analysis">Esperando resultado...</p>
                         <canvas id="analysisChart"></canvas>
                     </div>
@@ -178,12 +177,12 @@
             <div class="col-md-8">
                 <div class="card shadow mb-4">
                     <div class="card-header bg-success text-white fw-bold">
-                        🗺️ Visualización Interactiva (Wolfram Engine)
+                        Visualización
                     </div>
                     <div class="card-body">
                         <div id="map" class="mb-3"></div>
                         <p class="mt-2">Distancia Optimizada: <span id="ruta-km" class="text-primary fw-bold">---</span></p>
-                        <p class="mt-1">Estado Wolfram: <span id="status-wolfram" class="text-success fw-bold">Conectado</span></p>
+                        <p class="mt-1">Estado del motor: <span id="status-motor" class="text-success fw-bold">Conectado</span></p>
                     </div>
                 </div>
             </div>
@@ -364,7 +363,7 @@
             analysisChart = null;
         }
 
-        document.getElementById('optimization-form').addEventListener('submit', async function(e) {
+            document.getElementById('optimization-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             try { unlockAudio(); } catch (e) { console.warn('unlockAudio falló:', e); }
             function parseMaybeCoords(input) {
@@ -383,18 +382,18 @@
             const restriccionesTexto = (document.getElementById('restricciones').value || '').split(';').map(s => { const t = s.trim(); if (!t) return null; const parsed = parseMaybeCoords(t); return parsed; }).filter(item => item !== null);
                 const payload = { origen: origen, destino: destino, restricciones: restriccionesTexto, force_audio: !!document.getElementById('force_audio_checkbox').checked };
             document.getElementById('ruta-km').innerText = 'Calculando...';
-            document.getElementById('status-wolfram').innerText = 'EJECUTANDO';
+            document.getElementById('status-motor').innerText = 'EJECUTANDO';
             try {
                 const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const data = await response.json();
                 if (response.status !== 200 || data.error) {
                     document.getElementById('ruta-km').innerText = 'ERROR';
-                    document.getElementById('status-wolfram').innerText = 'FALLO CRÍTICO';
+                    document.getElementById('status-motor').innerText = 'FALLO CRÍTICO';
                     document.getElementById('gemini-analysis').innerText = data.error || 'Error desconocido en el servidor.';
                     showToast({ title: 'Error en Cálculo', message: data.error || 'Error desconocido', severity: 'danger' });
                     return;
                 }
-                document.getElementById('status-wolfram').innerText = 'COMPLETADO';
+                document.getElementById('status-motor').innerText = 'COMPLETADO';
                 document.getElementById('ruta-km').innerText = `${data.ruta_km || 'N/A'} KM`;
                 if (data.is_critical_alert) {
                     showToast({ title: 'Alerta Crítica', message: `Ruta óptima de ${data.ruta_km} km con alto riesgo detectado`, severity: 'danger' });
@@ -405,7 +404,7 @@
             } catch (error) {
                 console.error("Error de red:", error);
                 document.getElementById('ruta-km').innerText = 'ERROR DE RED';
-                document.getElementById('status-wolfram').innerText = 'DESCONECTADO';
+                document.getElementById('status-motor').innerText = 'DESCONECTADO';
                 showToast({ title: 'Error de Red', message: 'No se pudo conectar con el servidor', severity: 'danger' });
             }
         });
