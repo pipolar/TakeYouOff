@@ -194,12 +194,27 @@ class FlightMonitor:
                                         lon = getattr(sv, 'longitude', None)
                                         alt = getattr(sv, 'geo_altitude', None) or getattr(sv, 'baro_altitude', None)
                                         velocity = getattr(sv, 'velocity', None)
-                                        flights.append({"icao24": getattr(sv, 'icao24', None), "callsign": getattr(sv, 'callsign', None), "lat": lat, "lon": lon, "alt": alt, "velocity": velocity, "heading": getattr(sv, 'true_track', None), "type": "desconocido", "origin": getattr(sv, 'origin_country', None), "destination": None})
+                                        callsign = getattr(sv, 'callsign', None)
+                                        
+                                        flight_type = classify_flight(callsign)
+                                        
+                                        flights.append({
+                                            "icao24": getattr(sv, 'icao24', None), 
+                                            "callsign": callsign, 
+                                            "lat": lat, 
+                                            "lon": lon, 
+                                            "alt": alt, 
+                                            "velocity": velocity, 
+                                            "heading": getattr(sv, 'true_track', None), 
+                                            "type": flight_type,  # Use classified type
+                                            "origin": getattr(sv, 'origin_country', None), 
+                                            "destination": None
+                                        })
                                     except Exception:
                                         continue
                             if flights:
-                                self.flights = flights
-                                logger.info("OpenSky (client) fetched %d flights", len(self.flights))
+                                self.flights = validate_flights_batch_with_gemini(flights)
+                                logger.info("OpenSky (client) fetched %d flights, validated with Gemini", len(self.flights))
                                 return self.flights
                         else:
                             logger.warning("OpenSky client class 'OpenSkyApi' not found in module 'services.opensky_api'.")
@@ -210,8 +225,11 @@ class FlightMonitor:
             try:
                 http_flights = obtener_vuelos_opensky(lat_min, lon_min, lat_max, lon_max)
                 if http_flights:
-                    self.flights = http_flights
-                    logger.info("OpenSky (HTTP) fetched %d flights", len(self.flights))
+                    for flight in http_flights:
+                        flight['type'] = classify_flight(flight.get('callsign'))
+                    
+                    self.flights = validate_flights_batch_with_gemini(http_flights)
+                    logger.info("OpenSky (HTTP) fetched %d flights, validated with Gemini", len(self.flights))
                     return self.flights
             except Exception as e:
                 logger.warning("OpenSky HTTP fetch failed: %s", e)
@@ -773,11 +791,225 @@ def get_statistics():
         total_flights = len(flight_monitor.flights)
         cargo_flights = len([f for f in flight_monitor.flights if f['type'] == 'carga'])
         passenger_flights = total_flights - cargo_flights
-        avg_alt = sum(f['alt'] for f in flight_monitor.flights) / total_flights if total_flights > 0 else 0
+        avg_alt = sum(f['alt'] for f in flight_monitor.flights if f.get('alt') is not None) / total_flights if total_flights > 0 else 0
         return jsonify({"status": "ok", "total_flights": total_flights, "cargo_flights": cargo_flights, "passenger_flights": passenger_flights, "average_altitude": round(avg_alt, 0), "conflict_zones": len(flight_monitor.conflict_zones), "active_monitoring": True})
     except Exception as e:
         logger.error(f"Error en statistics: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+# ===================================================================
+# 7. NUEVAS FUNCIONES PARA CLASIFICACIÓN Y VALIDACIÓN DE VUELOS
+# ===================================================================
+
+# Cargar el mapping de operadores
+_operator_mapping = None
+def load_operator_mapping():
+    global _operator_mapping
+    if _operator_mapping is None:
+        try:
+            import json
+            from pathlib import Path
+            mapping_path = Path(__file__).resolve().parent / 'data' / 'operator_mapping.json'
+            with open(mapping_path, 'r') as f:
+                _operator_mapping = json.load(f)
+            logger.info("Operator mapping cargado correctamente")
+        except Exception as e:
+            logger.warning(f"Error al cargar operator_mapping.json: {e}")
+            _operator_mapping = {"cargo_prefixes": [], "commercial_prefixes": []}
+    return _operator_mapping
+
+
+def obtener_token():
+    """Alias para obtener_token_opensky - mantiene compatibilidad con collector.py"""
+    return obtener_token_opensky()
+
+
+def classify_flight(callsign):
+    """
+    Clasifica un vuelo basado en su callsign.
+    Retorna: 'carga', 'comercial', o 'desconocido'
+    """
+    if not callsign or not isinstance(callsign, str):
+        return "desconocido"
+    
+    callsign_upper = callsign.strip().upper()
+    if not callsign_upper:
+        return "desconocido"
+    
+    # Cargar el mapping
+    mapping = load_operator_mapping()
+    
+    # Verificar prefijos de carga
+    cargo_prefixes = mapping.get("cargo_prefixes", [])
+    for prefix in cargo_prefixes:
+        if callsign_upper.startswith(prefix.upper()):
+            return "carga"
+    
+    # Verificar prefijos comerciales
+    commercial_prefixes = mapping.get("commercial_prefixes", [])
+    for prefix in commercial_prefixes:
+        if callsign_upper.startswith(prefix.upper()):
+            return "comercial"
+    
+    # Por defecto, si no se encuentra, considerarlo comercial
+    # (la mayoría de vuelos desconocidos son comerciales)
+    return "comercial"
+
+
+def validate_and_enrich_flight_with_gemini(flight_data):
+    """
+    Usa Gemini API para validar y enriquecer la información de un vuelo.
+    Verifica que la clasificación sea correcta y añade información contextual.
+    """
+    try:
+        # Primero clasificar con el método tradicional
+        basic_type = classify_flight(flight_data.get('callsign'))
+        
+        # Verificar si Gemini está disponible
+        GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
+        if not GOOGLE_API_KEY:
+            # Sin Gemini, usar clasificación básica
+            flight_data['type'] = basic_type
+            flight_data['verified'] = False
+            return flight_data
+        
+        # Construir prompt para Gemini
+        prompt = f"""Eres un experto en aviación comercial y de carga. Analiza este vuelo y verifica su clasificación:
+
+Callsign: {flight_data.get('callsign', 'N/A')}
+País de origen: {flight_data.get('origin_country', 'N/A')}
+Altitud: {flight_data.get('alt', 'N/A')} pies
+Velocidad: {flight_data.get('velocity', 'N/A')} nudos
+
+Clasificación actual: {basic_type}
+
+Responde en formato JSON con las siguientes claves:
+- "type": "carga" o "comercial" (tu verificación)
+- "confidence": número entre 0 y 1 (qué tan seguro estás)
+- "operator_name": nombre de la aerolínea/operador si lo conoces
+- "verification_notes": breve nota sobre por qué clasificaste así
+
+IMPORTANTE: Responde SOLO con JSON válido, sin texto adicional."""
+
+        try:
+            genai.configure(api_key=GOOGLE_API_KEY)
+            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            response = model.generate_content(prompt)
+            
+            # Extraer y parsear la respuesta JSON
+            response_text = response.text.strip()
+            
+            # Buscar JSON en la respuesta
+            import re
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                gemini_result = json.loads(json_match.group())
+                
+                # Enriquecer el vuelo con la información de Gemini
+                flight_data['type'] = gemini_result.get('type', basic_type)
+                flight_data['verified'] = True
+                flight_data['confidence'] = gemini_result.get('confidence', 0.5)
+                flight_data['operator_name'] = gemini_result.get('operator_name', 'Desconocido')
+                flight_data['verification_notes'] = gemini_result.get('verification_notes', '')
+                
+                logger.info(f"Vuelo {flight_data.get('callsign')} verificado con Gemini: {flight_data['type']} (confianza: {flight_data['confidence']})")
+            else:
+                # No se pudo parsear JSON, usar clasificación básica
+                flight_data['type'] = basic_type
+                flight_data['verified'] = False
+                logger.warning(f"Gemini no devolvió JSON válido para {flight_data.get('callsign')}")
+                
+        except Exception as e:
+            logger.warning(f"Error al validar vuelo con Gemini: {e}")
+            flight_data['type'] = basic_type
+            flight_data['verified'] = False
+            
+    except Exception as e:
+        logger.error(f"Error en validate_and_enrich_flight_with_gemini: {e}")
+        flight_data['type'] = classify_flight(flight_data.get('callsign'))
+        flight_data['verified'] = False
+    
+    return flight_data
+
+
+def validate_flights_batch_with_gemini(flights):
+    """
+    Valida múltiples vuelos en batch usando Gemini para mejor rendimiento.
+    """
+    if not flights:
+        return []
+    
+    try:
+        GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
+        if not GOOGLE_API_KEY:
+            # Sin Gemini, clasificar todos con método básico
+            for flight in flights:
+                flight['type'] = classify_flight(flight.get('callsign'))
+                flight['verified'] = False
+            return flights
+        
+        # Preparar resumen de vuelos para análisis en batch
+        flight_summary = []
+        for i, flight in enumerate(flights[:20]):  # Limitar a 20 vuelos por batch
+            flight_summary.append({
+                'index': i,
+                'callsign': flight.get('callsign', 'N/A'),
+                'origin_country': flight.get('origin_country', 'N/A'),
+                'alt': flight.get('alt', 'N/A'),
+                'velocity': flight.get('velocity', 'N/A')
+            })
+        
+        prompt = f"""Eres un experto en aviación. Clasifica estos vuelos como "carga" o "comercial":
+
+{json.dumps(flight_summary, indent=2)}
+
+Responde en formato JSON: {{"flights": [{{"index": 0, "type": "carga" o "comercial", "confidence": 0.0-1.0, "operator_name": "nombre"}}]}}
+
+IMPORTANTE: Responde SOLO con JSON válido."""
+
+        try:
+            genai.configure(api_key=GOOGLE_API_KEY)
+            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            response = model.generate_content(prompt)
+            
+            # Parsear respuesta
+            response_text = response.text.strip()
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            
+            if json_match:
+                result = json.loads(json_match.group())
+                gemini_flights = result.get('flights', [])
+                
+                # Aplicar resultados de Gemini
+                for gemini_flight in gemini_flights:
+                    idx = gemini_flight.get('index')
+                    if idx is not None and idx < len(flights):
+                        flights[idx]['type'] = gemini_flight.get('type', 'desconocido')
+                        flights[idx]['verified'] = True
+                        flights[idx]['confidence'] = gemini_flight.get('confidence', 0.5)
+                        flights[idx]['operator_name'] = gemini_flight.get('operator_name', 'Desconocido')
+                
+                logger.info(f"Validados {len(gemini_flights)} vuelos con Gemini en batch")
+            else:
+                # Fallback a clasificación básica
+                for flight in flights:
+                    flight['type'] = classify_flight(flight.get('callsign'))
+                    flight['verified'] = False
+                    
+        except Exception as e:
+            logger.warning(f"Error en validación batch con Gemini: {e}")
+            for flight in flights:
+                flight['type'] = classify_flight(flight.get('callsign'))
+                flight['verified'] = False
+                
+    except Exception as e:
+        logger.error(f"Error en validate_flights_batch_with_gemini: {e}")
+        for flight in flights:
+            flight['type'] = classify_flight(flight.get('callsign'))
+            flight['verified'] = False
+    
+    return flights
 
 
 if __name__ == '__main__':
@@ -785,5 +1017,3 @@ if __name__ == '__main__':
     logger.info(f"📍 Modo desarrollo: DEV_MOCK={DEV_MOCK}")
     logger.info("✈️ Sistema de monitoreo OpenSky activo")
     app.run(debug=True, port=5000)
-def chat():
-    return "Hello, how can I assist you today?"

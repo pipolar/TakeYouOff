@@ -60,6 +60,7 @@ def procesar_y_guardar(estados_json: dict):
     """Procesa los datos de los vuelos. La persistencia en DB fue removida."""
     marca_tiempo = int(time.time())
     estados = estados_json.get("states", [])
+    
     for estado in estados:
         icao24 = estado[0]
         callsign = estado[1].strip() if estado[1] else ""
@@ -67,7 +68,9 @@ def procesar_y_guardar(estados_json: dict):
         lon = estado[5]
         if lat is None or lon is None:
             continue
+        
         tipo = classify_flight(callsign)
+        
         doc = {
             "icao24": icao24,
             "callsign": callsign if callsign else "N/A",
@@ -83,7 +86,7 @@ def procesar_y_guardar(estados_json: dict):
         # Antes: se escribía en MongoDB. Actualmente la persistencia fue retirada
         # para eliminar dependencias y configuraciones externas. De momento
         # solo registramos la llegada de cada vuelo procesado.
-        logger.debug(f"Procesado vuelo {icao24} ({callsign}) -> {doc['latitud']}, {doc['longitud']}")
+        logger.debug(f"Procesado vuelo {icao24} ({callsign}) tipo: {tipo} -> {doc['latitud']}, {doc['longitud']}")
 
 
 def main():

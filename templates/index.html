@@ -612,6 +612,7 @@
 
         let monitoringInterval = null;
         let isMonitoring = false;
+        let currentFilter = 'all';
 
         async function fetchFlights() {
             try {
@@ -625,7 +626,8 @@
                     document.getElementById('flight-count').textContent = totalFlights;
                     document.getElementById('cargo-count').textContent = cargoFlights;
 
-                    try { updateVuelosMap(data.vuelos); } catch (e) { console.warn('updateVuelosMap call failed', e); }
+                    const filteredFlights = filterFlightsByType(data.vuelos, currentFilter);
+                    try { updateVuelosMap(filteredFlights); } catch (e) { console.warn('updateVuelosMap call failed', e); }
 
                     if (data.alerts && data.alerts.length > 0) {
                         data.alerts.forEach(alert => {
@@ -637,6 +639,45 @@
                 console.error('Error fetching flights:', error);
             }
         }
+
+        function filterFlightsByType(vuelos, filterType) {
+            if (filterType === 'all') {
+                return vuelos;
+            } else if (filterType === 'cargo') {
+                return vuelos.filter(v => v.type === 'carga');
+            }
+            return vuelos;
+        }
+
+        document.querySelectorAll('input[name="flightFilter"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                currentFilter = this.value;
+                console.log('[v0] Filter changed to:', currentFilter);
+                
+                // Clear all current markers
+                Object.keys(planeMarkers).forEach(id => {
+                    try { 
+                        map.removeLayer(planeMarkers[id]); 
+                    } catch (e) {}
+                    delete planeMarkers[id];
+                });
+                
+                // Fetch and display flights with new filter
+                if (isMonitoring) {
+                    fetchFlights();
+                }
+                
+                // Show toast notification
+                const filterMessage = currentFilter === 'all' 
+                    ? 'Mostrando todos los vuelos' 
+                    : 'Mostrando solo vuelos de carga';
+                showToast({ 
+                    title: 'Filtro Actualizado', 
+                    message: filterMessage, 
+                    severity: 'info' 
+                });
+            });
+        });
 
         document.getElementById('btn-start-monitoring').addEventListener('click', function() {
             if (!isMonitoring) {
