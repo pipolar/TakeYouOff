@@ -243,24 +243,51 @@ class FlightMonitor:
         for i in range(len(self.flights)):
             for j in range(i + 1, len(self.flights)):
                 f1, f2 = self.flights[i], self.flights[j]
-                dist_horizontal = haversine_distance(f1['lat'], f1['lon'], f2['lat'], f2['lon'])
-                dist_vertical = abs(f1['alt'] - f2['alt']) / 1000
+                # Skip if coordinates are missing
+                lat1 = f1.get('lat')
+                lon1 = f1.get('lon')
+                lat2 = f2.get('lat')
+                lon2 = f2.get('lon')
+                if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+                    continue
+                try:
+                    dist_horizontal = haversine_distance(lat1, lon1, lat2, lon2)
+                except Exception:
+                    continue
+                # Use a safe default altitude when missing (meters)
+                alt1 = f1.get('alt') if f1.get('alt') is not None else 3000
+                alt2 = f2.get('alt') if f2.get('alt') is not None else 3000
+                try:
+                    dist_vertical = abs(float(alt1) - float(alt2)) / 1000.0
+                except Exception:
+                    dist_vertical = 0.0
                 dist_3d = (dist_horizontal**2 + dist_vertical**2)**0.5
                 if dist_3d < 5:
-                    conflict_id = f"{f1['icao24']}-{f2['icao24']}"
+                    # Build a stable conflict id even if icao24 missing
+                    icao1 = f1.get('icao24') or f1.get('callsign') or str(i)
+                    icao2 = f2.get('icao24') or f2.get('callsign') or str(j)
+                    conflict_id = f"{icao1}-{icao2}"
                     if conflict_id not in self.known_conflicts:
                         self.known_conflicts.add(conflict_id)
-                        conflicts.append({"type": "proximitad", "flight1": f1['callsign'], "flight2": f2['callsign'], "distance_km": round(dist_3d, 2), "severity": "crítica" if dist_3d < 2 else "alta"})
-                        alerts.append({"title": "⚠️ Conflicto de Proximidad", "message": f"{f1['callsign']} y {f2['callsign']} a {dist_3d:.1f} km", "severity": "danger"})
+                        conflicts.append({"type": "proximitad", "flight1": f1.get('callsign'), "flight2": f2.get('callsign'), "distance_km": round(dist_3d, 2), "severity": "crítica" if dist_3d < 2 else "alta"})
+                        alerts.append({"title": "⚠️ Conflicto de Proximidad", "message": f"{f1.get('callsign')} y {f2.get('callsign')} a {dist_3d:.1f} km", "severity": "danger"})
         for flight in self.flights:
+            # Skip flights without coordinates
+            f_lat = flight.get('lat')
+            f_lon = flight.get('lon')
+            if f_lat is None or f_lon is None:
+                continue
             for zone in self.conflict_zones:
-                dist = haversine_distance(flight['lat'], flight['lon'], zone['lat'], zone['lon'])
+                try:
+                    dist = haversine_distance(f_lat, f_lon, zone['lat'], zone['lon'])
+                except Exception:
+                    continue
                 if dist < zone['radius']:
-                    zone_id = f"{flight['icao24']}-{zone['name']}"
+                    zone_id = f"{flight.get('icao24') or flight.get('callsign')}-{zone['name']}"
                     if zone_id not in self.known_conflicts:
                         self.known_conflicts.add(zone_id)
                         severity_level = "crítica" if dist < zone['radius']/2 else "alta"
-                        alerts.append({"title": f"⚡ Zona Restringida: {zone['name']}", "message": f"{flight['callsign']} en zona de restricción", "severity": "warning" if severity_level == "alta" else "danger"})
+                        alerts.append({"title": f"⚡ Zona Restringida: {zone['name']}", "message": f"{flight.get('callsign')} en zona de restricción", "severity": "warning" if severity_level == "alta" else "danger"})
         return conflicts, alerts
 
 
@@ -307,9 +334,50 @@ def obtener_vuelos_opensky(lamin, lomin, lamax, lomax):
     for s in data.get("states", []):
         lat = s[6] if len(s) > 6 else None
         lon = s[5] if len(s) > 5 else None
+        # Require coordinates
         if lat is None or lon is None:
             continue
-        vuelos.append({"icao24": s[0] if len(s) > 0 else None, "callsign": (s[1] or "").strip() if len(s) > 1 else "", "origin_country": s[2] if len(s) > 2 else None, "lat": lat, "lon": lon, "alt": s[7] if len(s) > 7 else None, "velocity": s[9] if len(s) > 9 else None, "heading": s[10] if len(s) > 10 else None, "fetched_at": now_ts})
+        # Coerce to float and skip if invalid
+        try:
+            lat = float(lat)
+            lon = float(lon)
+        except Exception:
+            continue
+        # Altitude (may be None)
+        alt = None
+        if len(s) > 7 and s[7] is not None:
+            try:
+                alt = float(s[7])
+            except Exception:
+                alt = None
+        # Velocity
+        velocity = None
+        if len(s) > 9 and s[9] is not None:
+            try:
+                velocity = float(s[9])
+            except Exception:
+                velocity = None
+        # Heading / true_track
+        heading = None
+        if len(s) > 10 and s[10] is not None:
+            try:
+                heading = float(s[10])
+            except Exception:
+                heading = None
+        callsign = (s[1] or "").strip() if len(s) > 1 else ""
+        vuelos.append({
+            "icao24": s[0] if len(s) > 0 else None,
+            "callsign": callsign,
+            "origin_country": s[2] if len(s) > 2 else None,
+            "lat": lat,
+            "lon": lon,
+            "alt": alt,
+            "velocity": velocity,
+            "heading": heading,
+            "type": "desconocido",
+            "destination": None,
+            "fetched_at": now_ts
+        })
     return vuelos
 
 
