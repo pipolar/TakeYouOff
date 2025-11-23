@@ -16,7 +16,7 @@ TakeYouOff es una aplicación web para monitoreo y soporte de planificación de 
 	- Llamada directa desde `app.py` al cliente de Gemini cuando `GOOGLE_API_KEY` está presente; si el SDK no está instalado o falla, `app.py` hace fallback hacia el microservicio y finalmente hacia un resumen humano legible.
 - 📄 **Documentación y guía**: se añadieron `GEMINI_INTEGRATION.md` con recomendaciones de prompts y fallbacks, y el README ahora describe el proyecto y los pasos esenciales.
 
-**Archivos relevantes modificados / añadidos**
+**Archivos relevantes **
 - `app.py` — servidor principal: lógica de optimización, TTS (ElevenLabs) y la función `call_gemini_analysis()` que intenta: (1) cliente Gemini directo → (2) microservicio → (3) fallback.
 - `templates/index.html` — frontend: se añadió la llamada a `playAlertAudio` tras la respuesta de `optimize-route`.
 - `services/elevenlabs_service.py` (existente) — wrapper/uso del SDK de ElevenLabs.
@@ -26,44 +26,28 @@ TakeYouOff es una aplicación web para monitoreo y soporte de planificación de 
 **Variables de entorno importantes**
 - `ELEVENLABS_API_KEY` — clave para generar TTS con ElevenLabs.
 - `GOOGLE_API_KEY` — clave para usar Google Generative AI (Gemini) desde el SDK.
-- `GEMINI_MICROSERVICE_URL` — URL del microservicio (por defecto `http://127.0.0.1:6000/analyze`).
 - `DEV_MOCK` — cuando está activado, muchas respuestas de IA y de vuelos se simulan para pruebas.
 
-**Cómo ejecutar (rápido)**
-1. Crear entorno virtual y activar (Windows PowerShell):
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-2. Definir variables de entorno mínimas en la misma sesión (PowerShell):
-
-```powershell
-$env:ELEVENLABS_API_KEY = 'sk-...'
-# Opcional si quieres análisis real con Gemini:
-$env:GOOGLE_API_KEY = 'AIza...'
-```
-
-3. Ejecutar la app:
-
-```powershell
-python app.py
-```
-
-Si prefieres la ruta del microservicio de IA sin Docker: abre otra terminal, activa su venv, instala `ai_gemini_microservice/requirements.txt` y lanza `python ai_gemini_microservice/app.py`.
-
-**Notas importantes de seguridad y recomendaciones** 🔐
-- Si expusiste claves (por ejemplo `GOOGLE_API_KEY`) en esta conversación o en el historial, revócalas y genera nuevas. Nunca subas secretos al repo.
-- Para despliegues en producción, usa un gestor seguro de secretos (Azure Key Vault, AWS Secrets Manager, HashiCorp Vault, etc.).
 
 **Ideas / próximos pasos** ✨
 - Integrar persistencia (SQLite o una DB ligera) para logs y trazas de alertas.
 - Añadir autenticación y control de accesos en la UI/API.
 - Mejorar experiencia de audio (pre-caching, indicación visual cuando audio no puede reproducirse por autoplay).
 
-¿Quieres que actualice este README con instrucciones más específicas (por ejemplo: pasos para Windows, Linux, o un script de PowerShell para iniciar todo)? Si quieres, también puedo crear un pequeño script `start_local.ps1` que prepare el entorno y arranque el servidor y (opcionalmente) el microservicio.
-
 ---
-_Archivo generado y actualizado por el equipo de desarrollo. Si falta algo o quieres que lo haga más técnico (comandos exactos para CI/CD, Docker Compose, o empaquetado), dime y lo añado._
+
+**Tecnologías usadas**
+- Python 3.10+
+- Flask
+- ElevenLabs (`elevenlabs` Python SDK)
+- Google Generative AI (`google-generativeai`)
+- Requests (HTTP)
+- Leaflet (mapa en frontend)
+- Bootstrap (estilos)
+- Chart.js (gráficos)
+- OpenSky API (fuente de tráfico aéreo)
+- Nominatim (geocoding)
+- JavaScript, HTML, CSS
+- Docker (opcional, para microservicio)
+- PowerShell (scripts de inicio en Windows)
+- `pip` / entornos virtuales (`venv`)
