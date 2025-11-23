@@ -446,6 +446,34 @@
                         </h4>
                     </div>
                     
+                    <div class="row justify-content-center mb-3">
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body py-3">
+                                    <label class="form-label fw-bold mb-2">
+                                        <i class="bi bi-funnel-fill me-2"></i>Filtro de Vuelos
+                                    </label>
+                                    <div class="d-flex gap-4 justify-content-center">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="flightFilter" 
+                                                   id="filterAll" value="all" checked>
+                                            <label class="form-check-label" for="filterAll">
+                                                <i class="bi bi-airplane me-1"></i>Todos los vuelos
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="flightFilter" 
+                                                   id="filterCargo" value="cargo">
+                                            <label class="form-check-label" for="filterCargo">
+                                                <i class="bi bi-box-seam me-1"></i>Solo vuelos de carga
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="row justify-content-center g-3 mb-3">
                         <div class="col-md-4 col-sm-6">
                             <button id="btn-start-monitoring" class="btn btn-info w-100">
@@ -477,6 +505,7 @@
             </div>
         </div>
 
+        <!-- Dashboard de Análisis de Riesgo - Mejorado y más atractivo -->
         <div class="row g-4 mt-2 mb-5">
             <div class="col-12">
                 <div class="card shadow-lg">
@@ -783,17 +812,6 @@
                 updateMap(data.ruta_coordenadas);
                 updateChart(data.analisis_simulacion);
                 document.getElementById('gemini-analysis').innerText = data.analisis_ia_texto || 'Análisis de IA pendiente...';
-                // Reproducir audio si el servidor devolvió audio embebido o URL
-                try {
-                    if (data.audio_alert_data) {
-                        // audio_alert_data puede ser data:audio/... o ruta /static/audio/...
-                        await playAlertAudio(data.audio_alert_data);
-                    } else if (data.audio_alert_url) {
-                        await playAlertAudio(data.audio_alert_url);
-                    }
-                } catch (e) {
-                    console.warn('playAlertAudio falló tras optimize-route:', e);
-                }
             } catch (error) {
                 console.error("Error de red:", error);
                 document.getElementById('ruta-km').innerText = 'ERROR DE RED';
