@@ -60,4 +60,3 @@ Para ejecutar el proyecto con todas las funcionalidades, son necesarias las sigu
 
 ---
 
-¿Qué te parece? ¿Hay alguna sección que te gustaría expandir o cambiar el enfoque?
