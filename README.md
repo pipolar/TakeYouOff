@@ -29,30 +29,7 @@ TakeYouOff es una aplicación web para monitoreo y soporte de planificación de 
 - `GEMINI_MICROSERVICE_URL` — URL del microservicio (por defecto `http://127.0.0.1:6000/analyze`).
 - `DEV_MOCK` — cuando está activado, muchas respuestas de IA y de vuelos se simulan para pruebas.
 
-**Cómo ejecutar (rápido)**
-1. Crear entorno virtual y activar (Windows PowerShell):
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-2. Definir variables de entorno mínimas en la misma sesión (PowerShell):
-
-```powershell
-$env:ELEVENLABS_API_KEY = 'sk-...'
-# Opcional si quieres análisis real con Gemini:
-$env:GOOGLE_API_KEY = 'AIza...'
-```
-
-3. Ejecutar la app:
-
-```powershell
-python app.py
-```
-
-Si prefieres la ruta del microservicio de IA sin Docker: abre otra terminal, activa su venv, instala `ai_gemini_microservice/requirements.txt` y lanza `python ai_gemini_microservice/app.py`.
 
 **Notas importantes de seguridad y recomendaciones** 🔐
 - Si expusiste claves (por ejemplo `GOOGLE_API_KEY`) en esta conversación o en el historial, revócalas y genera nuevas. Nunca subas secretos al repo.
