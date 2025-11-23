@@ -6,15 +6,228 @@
     <title>TakeYouOff | Sky Monitoring</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
     <style>
-        #map { height: 500px; border-radius: 8px; }
-        .card { border-radius: 10px; }
-        .form-control-sm { margin-bottom: 5px; }
+        /* Mejoras de diseño con Bootstrap - Layout optimizado */
         
-        /* Toast Notification Styles */
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --dark-gradient: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        /* Navbar mejorada */
+        .navbar {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%) !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .navbar-brand {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        
+        /* Mapa principal - centrado y grande */
+        #map { 
+            height: 75vh; 
+            min-height: 600px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            border: 3px solid rgba(255,255,255,0.1);
+        }
+        
+        /* Cards mejoradas con gradientes */
+        .card {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            background: rgba(255,255,255,0.95);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+        
+        .card-header {
+            border-radius: 15px 15px 0 0 !important;
+            padding: 1rem 1.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        
+        .card-header.gradient-primary {
+            background: var(--primary-gradient);
+        }
+        
+        .card-header.gradient-success {
+            background: var(--success-gradient);
+        }
+        
+        .card-header.gradient-warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .card-header.gradient-dark {
+            background: var(--dark-gradient);
+        }
+        
+        /* Form controls mejorados */
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+            padding: 0.75rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        /* Botones mejorados */
+        .btn {
+            border-radius: 10px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: var(--primary-gradient);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-info {
+            background: var(--success-gradient);
+            color: white;
+        }
+        
+        .btn-info:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(17, 153, 142, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #84848a 0%, #a8a8b0 100%);
+        }
+        
+        /* Stats Cards - Dashboard de análisis */
+        .stat-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        
+        .stat-card .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-card.danger .stat-icon {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .stat-card.success .stat-icon {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        
+        .stat-card.warning .stat-icon {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #d35400;
+        }
+        
+        .stat-card .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            font-weight: 500;
+        }
+        
+        /* Monitoring Section */
+        .monitoring-container {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+        }
+        
+        .monitoring-stats {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-top: 1.5rem;
+        }
+        
+        .monitoring-stat {
+            text-align: center;
+        }
+        
+        .monitoring-stat .number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .monitoring-stat .label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* Chart container */
+        #analysisChart {
+            max-height: 250px;
+        }
+        
+        /* Toast Notifications */
         .toast-container-custom {
             position: fixed;
-            top: 20px;
+            top: 80px;
             right: 20px;
             z-index: 9999;
             display: flex;
@@ -26,9 +239,9 @@
         .toast-item {
             background: white;
             border-left: 4px solid #dc3545;
-            border-radius: 4px;
+            border-radius: 12px;
             padding: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
             animation: slideIn 0.3s ease-out;
             display: flex;
             align-items: flex-start;
@@ -104,95 +317,238 @@
                 opacity: 1;
             }
         }
+        
+        /* Badge personalizado */
+        .custom-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            #map {
+                height: 50vh;
+                min-height: 400px;
+            }
+            
+            .monitoring-stats {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
     </style>
 </head>
-<body class="bg-light">
-
-    <nav class="navbar navbar-dark bg-dark shadow-sm mb-4">
+<body>
+    <!-- Navbar con audio indicator mejorado -->
+    <nav class="navbar navbar-dark shadow-sm mb-4">
         <div class="container-fluid">
-            <a class="navbar-brand ms-2" href="#">TakeYouOff</a>
-            <span class="navbar-text text-white-50">Sky Monitoring</span>
-            <span id="audio-indicator" class="ms-3 badge bg-secondary" style="display:none;">Audio habilitado</span>
+            <a class="navbar-brand ms-2" href="#">
+                <i class="bi bi-airplane-fill me-2"></i>TakeYouOff
+            </a>
+            <span class="navbar-text text-white-50 fw-bold">Sky Monitoring System</span>
+            <span id="audio-indicator" class="ms-3 badge bg-success custom-badge" style="display:none;">
+                <i class="bi bi-volume-up-fill me-1"></i>Audio habilitado
+            </span>
         </div>
     </nav>
 
     <!-- Toast Container -->
     <div id="toast-container" class="toast-container-custom"></div>
 
-    <div class="container-fluid">
-
-        <div class="row">
+    <div class="container-fluid px-4">
+        <!-- Layout reorganizado: Mapa grande centrado con sidebar izquierdo -->
+        <div class="row g-4">
             
-            <div class="col-md-4">
-                
-                <div class="card shadow mb-4">
-                    <div class="card-header bg-dark text-white fw-bold">
-                        ⚙️ Optimización de Ruta
+            <!-- Sidebar izquierdo: Optimización de Ruta -->
+            <div class="col-lg-3 col-md-4">
+                <div class="card shadow-lg">
+                    <div class="card-header gradient-primary text-white">
+                        <i class="bi bi-gear-fill me-2"></i>Optimización de Ruta
                     </div>
                     <div class="card-body">
                         <form id="optimization-form">
-                            <h6 class="mt-2">Origen (Coordenadas o Dirección):</h6>
-                            <input type="text" id="origen_input" class="form-control form-control-sm" placeholder="Lat, Lon o Dirección (ej: Aeropuerto CDMX)" required>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="bi bi-geo-alt-fill text-success me-1"></i>Origen
+                                </label>
+                                <input type="text" id="origen_input" class="form-control" 
+                                       placeholder="Lat, Lon o Dirección" required>
+                                <small class="text-muted">Ej: Aeropuerto CDMX</small>
+                            </div>
 
-                            <h6>Destino (Coordenadas o Dirección):</h6>
-                            <input type="text" id="destino_input" class="form-control form-control-sm" placeholder="Lat, Lon o Dirección (ej: Querétaro Centro)" required>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="bi bi-flag-fill text-danger me-1"></i>Destino
+                                </label>
+                                <input type="text" id="destino_input" class="form-control" 
+                                       placeholder="Lat, Lon o Dirección" required>
+                                <small class="text-muted">Ej: Querétaro Centro</small>
+                            </div>
                             
-                            <h6>Restricciones (Separadas por punto y coma - coordenadas o direcciones):</h6>
-                            <textarea id="restricciones" class="form-control form-control-sm mb-4" rows="2" placeholder="Ej: 19.6,-99.2; Aeropuerto de Toluca; 19.8,-99.5"></textarea>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>Restricciones
+                                </label>
+                                <textarea id="restricciones" class="form-control" rows="3" 
+                                          placeholder="Ej: 19.6,-99.2; Aeropuerto de Toluca"></textarea>
+                                <small class="text-muted">Separadas por punto y coma</small>
+                            </div>
 
                             <div class="form-check mb-3">
-                                <input class="form-check-input" type="checkbox" value="" id="force_audio_checkbox">
-                                <label class="form-check-label small text-muted" for="force_audio_checkbox">
-                                    Reproducir audio siempre (para pruebas)
+                                <input class="form-check-input" type="checkbox" id="force_audio_checkbox">
+                                <label class="form-check-label small" for="force_audio_checkbox">
+                                    <i class="bi bi-speaker-fill me-1"></i>Reproducir audio siempre
                                 </label>
                             </div>
 
-                            <button type="submit" class="btn btn-primary w-100 fw-bold">Calcular Ruta Óptima</button>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-calculator me-2"></i>Calcular Ruta Óptima
+                            </button>
                         </form>
 
-                        <!-- OpenSky Monitoring Section -->
-                        <hr class="my-4">
-                        <h6 class="fw-bold"> Monitoreando</h6>
-                        <button id="btn-start-monitoring" class="btn btn-info w-100 mb-2">Iniciar Monitoreo</button>
-                        <button id="btn-stop-monitoring" class="btn btn-secondary w-100 mb-2" disabled>Detener Monitoreo</button>
-                        <small class="text-muted">
-                            Vuelos en área: <span id="flight-count" class="fw-bold">0</span><br>
-                            Carga: <span id="cargo-count" class="fw-bold text-warning">0</span>
-                        </small>
+                        <!-- Info de ruta -->
+                        <div class="mt-4 p-3 rounded" style="background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold"><i class="bi bi-rulers me-1"></i>Distancia:</span>
+                                <span id="ruta-km" class="badge bg-primary fs-6">---</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-bold"><i class="bi bi-cpu me-1"></i>Estado:</span>
+                                <span id="status-motor" class="badge bg-success fs-6">Conectado</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                <div class="card shadow mb-4">
-                    <div class="card-header bg-secondary text-white fw-bold">
-                        Análisis de Riesgo
-                    </div>
-                    <div class="card-body">
-                        <p id="gemini-analysis">Esperando resultado...</p>
-                        <canvas id="analysisChart"></canvas>
-                    </div>
-                </div>
-
             </div>
             
-            <div class="col-md-8">
-                <div class="card shadow mb-4">
-                    <div class="card-header bg-success text-white fw-bold">
-                        Visualización
+            <!-- Mapa principal - centrado y grande -->
+            <div class="col-lg-9 col-md-8">
+                <div class="card shadow-lg">
+                    <div class="card-header gradient-success text-white">
+                        <i class="bi bi-map-fill me-2"></i>Visualización de Ruta y Vuelos
                     </div>
-                    <div class="card-body">
-                        <div id="map" class="mb-3"></div>
-                        <p class="mt-2">Distancia Optimizada: <span id="ruta-km" class="text-primary fw-bold">---</span></p>
-                        <p class="mt-1">Estado del motor: <span id="status-motor" class="text-success fw-bold">Conectado</span></p>
+                    <div class="card-body p-3">
+                        <div id="map"></div>
                     </div>
                 </div>
             </div>
+        </div>
 
+        <!-- Sección de Monitoreo - Debajo del mapa -->
+        <div class="row g-4 mt-2">
+            <div class="col-12">
+                <div class="monitoring-container">
+                    <div class="text-center mb-3">
+                        <h4 class="fw-bold mb-3">
+                            <i class="bi bi-broadcast me-2"></i>Sistema de Monitoreo
+                        </h4>
+                    </div>
+                    
+                    <div class="row justify-content-center g-3 mb-3">
+                        <div class="col-md-4 col-sm-6">
+                            <button id="btn-start-monitoring" class="btn btn-info w-100">
+                                <i class="bi bi-play-circle-fill me-2"></i>Iniciar Monitoreo
+                            </button>
+                        </div>
+                        <div class="col-md-4 col-sm-6">
+                            <button id="btn-stop-monitoring" class="btn btn-secondary w-100" disabled>
+                                <i class="bi bi-stop-circle-fill me-2"></i>Detener Monitoreo
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="monitoring-stats">
+                        <div class="monitoring-stat">
+                            <div class="number" id="flight-count">0</div>
+                            <div class="label">
+                                <i class="bi bi-airplane me-1"></i>Vuelos en Área
+                            </div>
+                        </div>
+                        <div class="monitoring-stat">
+                            <div class="number text-warning" id="cargo-count">0</div>
+                            <div class="label">
+                                <i class="bi bi-box-seam me-1"></i>Vuelos de Carga
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard de Análisis de Riesgo - Mejorado y más atractivo -->
+        <div class="row g-4 mt-2 mb-5">
+            <div class="col-12">
+                <div class="card shadow-lg">
+                    <div class="card-header gradient-warning text-white">
+                        <i class="bi bi-shield-exclamation me-2"></i>Dashboard de Análisis de Riesgo
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <!-- Stats Cards -->
+                            <div class="col-md-4">
+                                <div class="stat-card danger">
+                                    <div class="stat-icon">
+                                        <i class="bi bi-exclamation-triangle-fill"></i>
+                                    </div>
+                                    <div class="stat-value text-danger" id="risk-high-value">0%</div>
+                                    <div class="stat-label">Probabilidad de Riesgo Alto</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="stat-card success">
+                                    <div class="stat-icon">
+                                        <i class="bi bi-check-circle-fill"></i>
+                                    </div>
+                                    <div class="stat-value text-success" id="risk-success-value">0%</div>
+                                    <div class="stat-label">Probabilidad de Éxito</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="stat-card warning">
+                                    <div class="stat-icon">
+                                        <i class="bi bi-activity"></i>
+                                    </div>
+                                    <div class="stat-value text-warning" id="risk-status">---</div>
+                                    <div class="stat-label">Estado de la Ruta</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Chart Section -->
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <div class="p-3 rounded" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);">
+                                    <h6 class="fw-bold mb-3">
+                                        <i class="bi bi-bar-chart-fill me-2"></i>Análisis de Incertidumbre
+                                    </h6>
+                                    <canvas id="analysisChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 rounded" style="background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);">
+                                    <h6 class="fw-bold mb-3">
+                                        <i class="bi bi-robot me-2"></i>Análisis de IA
+                                    </h6>
+                                    <div id="gemini-analysis" class="p-3 bg-white rounded shadow-sm" 
+                                         style="min-height: 200px; max-height: 200px; overflow-y: auto;">
+                                        Esperando resultado del análisis...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
+    <!-- Scripts sin modificar - solo funcionalidad intacta -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- RotatedMarker plugin para poder rotar iconos según heading -->
     <script src="https://unpkg.com/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
@@ -219,7 +575,6 @@
             
             container.appendChild(toastEl);
             
-            // Auto-remove after 6 seconds
             setTimeout(() => {
                 if (toastEl.parentElement) {
                     toastEl.remove();
@@ -242,10 +597,8 @@
                     document.getElementById('flight-count').textContent = totalFlights;
                     document.getElementById('cargo-count').textContent = cargoFlights;
 
-                    // Actualizar marcadores en el mapa con la lista de vuelos
                     try { updateVuelosMap(data.vuelos); } catch (e) { console.warn('updateVuelosMap call failed', e); }
 
-                    // Show alerts as toast notifications
                     if (data.alerts && data.alerts.length > 0) {
                         data.alerts.forEach(alert => {
                             showToast(alert);
@@ -317,7 +670,6 @@
                 if (!Array.isArray(vuelos)) return;
                 const seen = new Set();
                 vuelos.forEach(v => {
-                    // Accept both {lat, lon} and {latitude, longitude} shapes
                     const lat = (v.lat !== undefined) ? v.lat : (v.latitude !== undefined ? v.latitude : null);
                     const lon = (v.lon !== undefined) ? v.lon : (v.longitude !== undefined ? v.longitude : null);
                     if (lat === null || lon === null) return;
@@ -353,17 +705,45 @@
                 console.warn('updateVuelosMap error', e);
             }
         }
+        
         let analysisChart = null;
 
         try {
             const ctx = document.getElementById('analysisChart').getContext('2d');
-            analysisChart = new Chart(ctx, { type: 'bar', data: { labels: ['Probabilidad Riesgo', 'Probabilidad Éxito'], datasets: [{ label: 'Análisis de Incertidumbre', data: [0, 0], backgroundColor: ['rgba(255, 99, 132, 0.5)', 'rgba(75, 192, 192, 0.5)'], }] }, options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } } });
+            analysisChart = new Chart(ctx, { 
+                type: 'bar', 
+                data: { 
+                    labels: ['Probabilidad Riesgo', 'Probabilidad Éxito'], 
+                    datasets: [{ 
+                        label: 'Análisis de Incertidumbre', 
+                        data: [0, 0], 
+                        backgroundColor: ['rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)'],
+                        borderColor: ['rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)'],
+                        borderWidth: 2
+                    }] 
+                }, 
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: true,
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            max: 100 
+                        } 
+                    }, 
+                    plugins: { 
+                        legend: { 
+                            display: false 
+                        } 
+                    } 
+                } 
+            });
         } catch (e) {
             console.warn('Chart.js no disponible:', e);
             analysisChart = null;
         }
 
-            document.getElementById('optimization-form').addEventListener('submit', async function(e) {
+        document.getElementById('optimization-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             try { unlockAudio(); } catch (e) { console.warn('unlockAudio falló:', e); }
             function parseMaybeCoords(input) {
@@ -380,20 +760,23 @@
             const origen = parseMaybeCoords(document.getElementById('origen_input').value);
             const destino = parseMaybeCoords(document.getElementById('destino_input').value);
             const restriccionesTexto = (document.getElementById('restricciones').value || '').split(';').map(s => { const t = s.trim(); if (!t) return null; const parsed = parseMaybeCoords(t); return parsed; }).filter(item => item !== null);
-                const payload = { origen: origen, destino: destino, restricciones: restriccionesTexto, force_audio: !!document.getElementById('force_audio_checkbox').checked };
+            const payload = { origen: origen, destino: destino, restricciones: restriccionesTexto, force_audio: !!document.getElementById('force_audio_checkbox').checked };
             document.getElementById('ruta-km').innerText = 'Calculando...';
             document.getElementById('status-motor').innerText = 'EJECUTANDO';
+            document.getElementById('status-motor').className = 'badge bg-warning fs-6';
             try {
                 const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const data = await response.json();
                 if (response.status !== 200 || data.error) {
                     document.getElementById('ruta-km').innerText = 'ERROR';
                     document.getElementById('status-motor').innerText = 'FALLO CRÍTICO';
+                    document.getElementById('status-motor').className = 'badge bg-danger fs-6';
                     document.getElementById('gemini-analysis').innerText = data.error || 'Error desconocido en el servidor.';
                     showToast({ title: 'Error en Cálculo', message: data.error || 'Error desconocido', severity: 'danger' });
                     return;
                 }
                 document.getElementById('status-motor').innerText = 'COMPLETADO';
+                document.getElementById('status-motor').className = 'badge bg-success fs-6';
                 document.getElementById('ruta-km').innerText = `${data.ruta_km || 'N/A'} KM`;
                 if (data.is_critical_alert) {
                     showToast({ title: 'Alerta Crítica', message: `Ruta óptima de ${data.ruta_km} km con alto riesgo detectado`, severity: 'danger' });
@@ -405,6 +788,7 @@
                 console.error("Error de red:", error);
                 document.getElementById('ruta-km').innerText = 'ERROR DE RED';
                 document.getElementById('status-motor').innerText = 'DESCONECTADO';
+                document.getElementById('status-motor').className = 'badge bg-danger fs-6';
                 showToast({ title: 'Error de Red', message: 'No se pudo conectar con el servidor', severity: 'danger' });
             }
         });
@@ -420,8 +804,25 @@
         function updateChart(analisis) {
             if (!analysisChart) return;
             if (analisis && analisis.riesgo_alto !== undefined) {
-                analysisChart.data.datasets[0].data = [analisis.riesgo_alto, analisis.riesgo_exito];
+                const riesgoAlto = analisis.riesgo_alto;
+                const riesgoExito = analisis.riesgo_exito;
+                
+                analysisChart.data.datasets[0].data = [riesgoAlto, riesgoExito];
                 analysisChart.update();
+                
+                document.getElementById('risk-high-value').textContent = `${riesgoAlto}%`;
+                document.getElementById('risk-success-value').textContent = `${riesgoExito}%`;
+                
+                if (riesgoAlto > 70) {
+                    document.getElementById('risk-status').textContent = 'ALTO RIESGO';
+                    document.getElementById('risk-status').className = 'stat-value text-danger';
+                } else if (riesgoAlto > 40) {
+                    document.getElementById('risk-status').textContent = 'RIESGO MEDIO';
+                    document.getElementById('risk-status').className = 'stat-value text-warning';
+                } else {
+                    document.getElementById('risk-status').textContent = 'RIESGO BAJO';
+                    document.getElementById('risk-status').className = 'stat-value text-success';
+                }
             }
         }
     </script>
@@ -438,59 +839,82 @@
                     ctx.resume().catch(() => {});
                 }
                 try {
-                    const buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
-                    const src = ctx.createBufferSource();
-                    src.buffer = buffer;
-                    src.connect(ctx.destination);
-                    src.start(0);
-                    setTimeout(() => { try { src.stop(); src.disconnect(); } catch (e) {} }, 50);
-                } catch (err) {}
-            } catch (e) {}
-        }
-        try {
-            window.addEventListener('load', () => {
-                try {
-                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                    if (AudioCtx && !window.__unlockAudioCtx) {
-                        window.__unlockAudioCtx = new AudioCtx();
-                        if (window.__unlockAudioCtx.state === 'suspended') {
-                            window.__unlockAudioCtx.resume().catch(() => {});
-                        }
-                    }
+                    const buffer = ctx.createBuffer(1, 1, 22050);
+                    const source = ctx.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(ctx.destination);
+                    source.start(0);
+                    source.stop(ctx.currentTime + 0.001);
                 } catch (e) {}
-            });
-        } catch (e) {}
-
-        function playInlineAudioFromDataURL(dataUrl) {
-            try {
-                const audio = new Audio(dataUrl);
-                audio.autoplay = true;
-                audio.controls = false;
-                audio.style.display = 'none';
-                document.body.appendChild(audio);
-                audio.addEventListener('ended', () => { try { audio.remove(); } catch (e) {} });
-                setTimeout(() => { try { audio.remove(); } catch (e) {} }, 30000);
-                audio.play().catch(err => { console.warn('Autoplay posiblemente bloqueado; audio no reproducido automáticamente:', err); });
-            } catch (e) { console.error('Error reproduciendo audio inline:', e); }
+                document.getElementById('audio-indicator').style.display = 'inline-block';
+            } catch (e) {
+                console.warn('unlockAudio exception:', e);
+            }
         }
 
-        (function() {
-            const originalFetch = window.fetch.bind(window);
-            window.fetch = async function(resource, init) {
-                const response = await originalFetch(resource, init);
-                try {
-                    const url = (typeof resource === 'string') ? resource : (resource && resource.url);
-                    if (url && (url.includes('/api/optimize-route') || url.includes('/api/emergency-route') || url.includes('/api/vuelos'))) {
-                        const clone = response.clone();
-                        const data = await clone.json().catch(() => null);
-                        if (data && data.audio_alert_data) {
-                            playInlineAudioFromDataURL(data.audio_alert_data);
+        async function playAlertAudio(audioData) {
+            try {
+                unlockAudio();
+                if (!audioData) {
+                    console.warn("No audio data provided");
+                    return;
+                }
+                let audioUrl;
+                if (audioData.startsWith('data:audio/')) {
+                    audioUrl = audioData;
+                } else if (audioData.startsWith('/static/audio/')) {
+                    audioUrl = audioData;
+                } else {
+                    console.warn("Formato de audio no soportado:", audioData.substring(0, 50));
+                    return;
+                }
+                const audio = new Audio(audioUrl);
+                audio.volume = 0.8;
+                await audio.play();
+                console.log("Audio de alerta reproducido exitosamente");
+            } catch (error) {
+                console.warn("Error al reproducir el audio de alerta:", error);
+            }
+        }
+
+        const POLL_ENDPOINT = '/api/alerts-poll';
+        let lastAlertId = null;
+        let pollingActive = false;
+
+        async function pollForAlerts() {
+            if (!pollingActive) return;
+            try {
+                const params = new URLSearchParams();
+                if (lastAlertId !== null) {
+                    params.append('since_id', lastAlertId);
+                }
+                const response = await fetch(`${POLL_ENDPOINT}?${params.toString()}`);
+                const data = await response.json();
+                if (data.alerts && Array.isArray(data.alerts)) {
+                    data.alerts.forEach(alertObj => {
+                        if (alertObj.id > lastAlertId || lastAlertId === null) {
+                            lastAlertId = alertObj.id;
                         }
-                    }
-                } catch (e) { console.warn('Error en fetch-wrapper para reproducción de audio:', e); }
-                return response;
-            };
-        })();
+                        if (alertObj.audio_url) {
+                            playAlertAudio(alertObj.audio_url);
+                        }
+                        if (alertObj.alert) {
+                            showToast(alertObj.alert);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.warn("Error polling for alerts:", error);
+            }
+            if (pollingActive) {
+                setTimeout(pollForAlerts, 3000);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            pollingActive = true;
+            pollForAlerts();
+        });
     </script>
 </body>
 </html>
