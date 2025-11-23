@@ -34,6 +34,7 @@ TakeYouOff es una aplicación web para monitoreo y soporte de planificación de 
 - Añadir autenticación y control de accesos en la UI/API.
 - Mejorar experiencia de audio (pre-caching, indicación visual cuando audio no puede reproducirse por autoplay).
 
+<<<<<<< HEAD
 ---
 
 **Tecnologías usadas**
@@ -51,3 +52,5 @@ TakeYouOff es una aplicación web para monitoreo y soporte de planificación de 
 - Docker (opcional, para microservicio)
 - PowerShell (scripts de inicio en Windows)
 - `pip` / entornos virtuales (`venv`)
+=======
+>>>>>>> fbfeb3fdd97c59867afe7113f26a8ce19a632432
