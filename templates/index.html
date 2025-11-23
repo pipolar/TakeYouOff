@@ -1,214 +1,497 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <title>Mapa de vuelos en México</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <link 
-      rel="stylesheet" 
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
-    />
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TakeYouOff | Sky Monitoring</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; padding: 0; }
-        #map {
-            height: 100vh;
-            width: 100%;
+        #map { height: 500px; border-radius: 8px; }
+        .card { border-radius: 10px; }
+        .form-control-sm { margin-bottom: 5px; }
+        
+        /* Toast Notification Styles */
+        .toast-container-custom {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 400px;
         }
-        #backButton {
-            position: absolute;
-            top: 10px;
-            left: 50px; /* Ajustado ligeramente para no tapar los controles de zoom */
-            z-index: 1000;
+        
+        .toast-item {
             background: white;
-            border: 1px solid #ccc;
-            padding: 8px 12px;
-            cursor: pointer;
-            display: none;
+            border-left: 4px solid #dc3545;
             border-radius: 4px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideIn 0.3s ease-out;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .toast-item.warning {
+            border-left-color: #ff9800;
+        }
+        
+        .toast-item.danger {
+            border-left-color: #dc3545;
+        }
+        
+        .toast-item.info {
+            border-left-color: #0d6efd;
+        }
+        
+        .toast-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .toast-danger .toast-icon { color: #dc3545; }
+        .toast-warning .toast-icon { color: #ff9800; }
+        .toast-info .toast-icon { color: #0d6efd; }
+        
+        .toast-content {
+            flex: 1;
+        }
+        
+        .toast-title {
             font-weight: bold;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+        
+        .toast-message {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .toast-close {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 20px;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .toast-close:hover {
+            color: #333;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
     </style>
 </head>
-<body>
+<body class="bg-light">
 
-    <div id="map"></div>
-    <button id="backButton">← Vista General</button>
+    <nav class="navbar navbar-dark bg-dark shadow-sm mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand ms-2" href="#">✈️ TakeYouOff</a>
+            <span class="navbar-text text-white-50">Sky Monitoring | OpenSky + IA</span>
+            <span id="audio-indicator" class="ms-3 badge bg-secondary" style="display:none;">Audio habilitado</span>
+        </div>
+    </nav>
 
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container-custom"></div>
+
+    <div class="container-fluid">
+
+        <div class="row">
+            
+            <div class="col-md-4">
+                
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-dark text-white fw-bold">
+                        ⚙️ Optimización de Ruta
+                    </div>
+                    <div class="card-body">
+                        <form id="optimization-form">
+                            <h6 class="mt-2">Origen (Coordenadas o Dirección):</h6>
+                            <input type="text" id="origen_input" class="form-control form-control-sm" placeholder="Lat, Lon o Dirección (ej: Aeropuerto CDMX)" required>
+
+                            <h6>Destino (Coordenadas o Dirección):</h6>
+                            <input type="text" id="destino_input" class="form-control form-control-sm" placeholder="Lat, Lon o Dirección (ej: Querétaro Centro)" required>
+                            
+                            <h6>Restricciones (Separadas por punto y coma - coordenadas o direcciones):</h6>
+                            <textarea id="restricciones" class="form-control form-control-sm mb-4" rows="2" placeholder="Ej: 19.6,-99.2; Aeropuerto de Toluca; 19.8,-99.5"></textarea>
+
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" value="" id="force_audio_checkbox">
+                                <label class="form-check-label small text-muted" for="force_audio_checkbox">
+                                    Reproducir audio siempre (para pruebas)
+                                </label>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100 fw-bold">Calcular Ruta Óptima</button>
+                        </form>
+
+                        <!-- OpenSky Monitoring Section -->
+                        <hr class="my-4">
+                        <h6 class="fw-bold">📡 Monitoreo OpenSky (CDMX)</h6>
+                        <button id="btn-start-monitoring" class="btn btn-info w-100 mb-2">Iniciar Monitoreo</button>
+                        <button id="btn-stop-monitoring" class="btn btn-secondary w-100 mb-2" disabled>Detener Monitoreo</button>
+                        <small class="text-muted">
+                            Vuelos en área: <span id="flight-count" class="fw-bold">0</span><br>
+                            Carga: <span id="cargo-count" class="fw-bold text-warning">0</span>
+                        </small>
+                    </div>
+                </div>
+
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-secondary text-white fw-bold">
+                        🧠 Análisis de Riesgo (Gemini)
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted">Explicabilidad del Modelo:</p>
+                        <p id="gemini-analysis">Esperando resultado...</p>
+                        <canvas id="analysisChart"></canvas>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="col-md-8">
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-success text-white fw-bold">
+                        🗺️ Visualización Interactiva (Wolfram Engine)
+                    </div>
+                    <div class="card-body">
+                        <div id="map" class="mb-3"></div>
+                        <p class="mt-2">Distancia Optimizada: <span id="ruta-km" class="text-primary fw-bold">---</span></p>
+                        <p class="mt-1">Estado Wolfram: <span id="status-wolfram" class="text-success fw-bold">Conectado</span></p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
+    <!-- RotatedMarker plugin para poder rotar iconos según heading -->
+    <script src="https://unpkg.com/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
-        // --- CONFIGURACIÓN DEL MAPA ---
-        const centerLat = 23.6345;
-        const centerLng = -102.5528;
-
-        const map = L.map('map').setView([centerLat, centerLng], 5);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
-
-        // --- DEFINICIÓN DE ÍCONOS ---
-        const airplaneIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/8111/8111822.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
-            popupAnchor: [0, -16]
-        });
-
-        const airportIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/2214/2214949.png',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12],
-            popupAnchor: [0, -12]
-        });
-
-        // --- VARIABLES DE ESTADO ---
-        let currentView = 'general';
-        const backButton = document.getElementById('backButton');
-        
-        // Guardamos marcadores por icao24 para actualizar posición sin recrearlos
-        const markersMap = {}; 
-        
-        // Variables para la vista de detalle
-        let polyline = null;
-        let marcadorOrigen = null;
-        let marcadorDestino = null;
-        // Referencia al marcador del avión seleccionado (para borrarlo al salir)
-        let detalleMarker = null; 
-
-        // --- FUNCIÓN PRINCIPAL: CARGAR VUELOS ---
-        async function cargarVuelos() {
-            // Si estamos viendo un vuelo específico, no actualizamos todos los aviones
-            if (currentView !== 'general') return;
-
-            try {
-                const response = await fetch('/vuelos');
-                const vuelos = await response.json();
-
-                // 1. Actualiza o crea marcadores
-                vuelos.forEach(vuelo => {
-                    if (vuelo.latitude && vuelo.longitude) {
-                        if (markersMap[vuelo.icao24]) {
-                            // Actualiza posición del marcador existente
-                            markersMap[vuelo.icao24].setLatLng([vuelo.latitude, vuelo.longitude]);
-                        } else {
-                            // Crea marcador nuevo
-                            const marker = L.marker([vuelo.latitude, vuelo.longitude], { icon: airplaneIcon })
-                                .addTo(map);
-                            
-                            // Evento click para ver detalle
-                            marker.on('click', () => mostrarDetalleVuelo(vuelo));
-                            
-                            markersMap[vuelo.icao24] = marker;
-                        }
-                    }
-                });
-
-                // 2. Elimina marcadores que ya no están en los datos (aviones que aterrizaron o salieron de zona)
-                const icosActuales = vuelos.map(v => v.icao24);
-                Object.keys(markersMap).forEach(icao => {
-                    if (!icosActuales.includes(icao)) {
-                        map.removeLayer(markersMap[icao]);
-                        delete markersMap[icao];
-                    }
-                });
-
-            } catch (error) {
-                console.error('Error cargando vuelos:', error);
-            }
+        function showToast(alert) {
+            const container = document.getElementById('toast-container');
+            const severityClass = `toast-${alert.severity}`;
+            const iconMap = {
+                'danger': '⚠️',
+                'warning': '⚡',
+                'info': 'ℹ️'
+            };
+            const icon = iconMap[alert.severity] || '•';
+            
+            const toastEl = document.createElement('div');
+            toastEl.className = `toast-item ${severityClass}`;
+            toastEl.innerHTML = `
+                <div class="toast-icon">${icon}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${alert.title}</div>
+                    <div class="toast-message">${alert.message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">✕</button>
+            `;
+            
+            container.appendChild(toastEl);
+            
+            // Auto-remove after 6 seconds
+            setTimeout(() => {
+                if (toastEl.parentElement) {
+                    toastEl.remove();
+                }
+            }, 6000);
         }
 
-        // --- VISTA DE DETALLE DE VUELO ---
-        async function mostrarDetalleVuelo(vuelo) {
-            currentView = 'detalle';
-            backButton.style.display = 'block';
+        let monitoringInterval = null;
+        let isMonitoring = false;
 
-            // Oculta todos los marcadores generales
-            Object.values(markersMap).forEach(marker => map.removeLayer(marker));
-
-            // Limpia polilínea y marcadores de ruta anteriores si existen
-            if (polyline) { map.removeLayer(polyline); polyline = null; }
-            if (marcadorOrigen) { map.removeLayer(marcadorOrigen); marcadorOrigen = null; }
-            if (marcadorDestino) { map.removeLayer(marcadorDestino); marcadorDestino = null; }
-            if (detalleMarker) { map.removeLayer(detalleMarker); detalleMarker = null; }
-
-            // Centra mapa en posición actual del vuelo
-            map.setView([vuelo.latitude, vuelo.longitude], 8);
-
-            // Marcador del avión actual (estático para la vista detalle)
-            detalleMarker = L.marker([vuelo.latitude, vuelo.longitude], { icon: airplaneIcon }).addTo(map);
-            detalleMarker.bindPopup(`
-                <b>Callsign:</b> ${vuelo.callsign || 'N/A'}<br/>
-                <b>Origen País:</b> ${vuelo.origin_country || 'N/A'}<br/>
-                <b>Latitud:</b> ${vuelo.latitude.toFixed(4)}<br/>
-                <b>Longitud:</b> ${vuelo.longitude.toFixed(4)}<br/>
-                <b>Altitud:</b> ${vuelo.altitude || 'N/A'} ft<br/>
-                <b>Velocidad:</b> ${vuelo.velocity || 'N/A'} knots<br/>
-                <b>Heading:</b> ${vuelo.heading || 'N/A'}°
-            `).openPopup();
-
-            // Obtener ruta origen-destino
+        async function fetchFlights() {
             try {
-                const resp = await fetch(`/ruta_vuelo/${vuelo.icao24}`);
-                if (!resp.ok) throw new Error("Ruta no encontrada");
-                const data = await resp.json();
+                const response = await fetch('/api/vuelos');
+                const data = await response.json();
+                
+                if (data.vuelos) {
+                    const totalFlights = data.vuelos.length;
+                    const cargoFlights = data.vuelos.filter(v => v.type === 'carga').length;
+                    
+                    document.getElementById('flight-count').textContent = totalFlights;
+                    document.getElementById('cargo-count').textContent = cargoFlights;
 
-                // Marcador de Origen
-                if (data.origen) {
-                    const origenCoord = [data.origen.lat, data.origen.lng];
-                    marcadorOrigen = L.marker(origenCoord, { icon: airportIcon })
-                        .bindPopup(`Aeropuerto Origen: ${data.estDepartureAirport}`)
-                        .addTo(map);
+                    // Actualizar marcadores en el mapa con la lista de vuelos
+                    try { updateVuelosMap(data.vuelos); } catch (e) { console.warn('updateVuelosMap call failed', e); }
 
-                    // Si hay destino, dibujamos ruta completa
-                    if (data.destino) {
-                        const destinoCoord = [data.destino.lat, data.destino.lng];
-                        marcadorDestino = L.marker(destinoCoord, { icon: airportIcon })
-                            .bindPopup(`Aeropuerto Destino: ${data.estArrivalAirport}`)
-                            .addTo(map);
-                        
-                        polyline = L.polyline([origenCoord, destinoCoord], { color: 'blue', weight: 3 }).addTo(map);
-                    } else {
-                        // Solo origen, dibuja línea hasta posición actual del avión
-                        const posicionActual = [vuelo.latitude, vuelo.longitude];
-                        polyline = L.polyline([origenCoord, posicionActual], { color: 'blue', weight: 3, dashArray: '5, 10' }).addTo(map);
+                    // Show alerts as toast notifications
+                    if (data.alerts && data.alerts.length > 0) {
+                        data.alerts.forEach(alert => {
+                            showToast(alert);
+                        });
                     }
                 }
             } catch (error) {
-                console.warn("No se pudo cargar la ruta:", error);
+                console.error('Error fetching flights:', error);
             }
         }
 
-        // --- BOTÓN DE REGRESO ---
-        backButton.addEventListener('click', () => {
-            currentView = 'general';
-            backButton.style.display = 'none';
+        document.getElementById('btn-start-monitoring').addEventListener('click', function() {
+            if (!isMonitoring) {
+                try { unlockAudio(); } catch (e) { console.warn('unlockAudio falla en start-monitoring:', e); }
 
-            // Remover marcador detalle y ruta
-            if (polyline) { map.removeLayer(polyline); polyline = null; }
-            if (marcadorOrigen) { map.removeLayer(marcadorOrigen); marcadorOrigen = null; }
-            if (marcadorDestino) { map.removeLayer(marcadorDestino); marcadorDestino = null; }
-            if (detalleMarker) { map.removeLayer(detalleMarker); detalleMarker = null; }
+                isMonitoring = true;
+                this.disabled = true;
+                document.getElementById('btn-stop-monitoring').disabled = false;
 
-            // Mostrar marcadores generales de nuevo
-            Object.values(markersMap).forEach(marker => marker.addTo(map));
+                fetchFlights();
+                monitoringInterval = setInterval(fetchFlights, 10000);
 
-            // Resetear vista
-            map.setView([centerLat, centerLng], 5);
-            
-            // Forzar actualización inmediata
-            cargarVuelos();
+                showToast({ title: 'Monitoreo Iniciado', message: 'Observando vuelos en el área de CDMX', severity: 'info' });
+            }
         });
 
-        // --- INICIO ---
-        // Carga inicial y actualización cada 3 segundos
-        cargarVuelos();
-        setInterval(cargarVuelos, 3000);
+        document.getElementById('btn-stop-monitoring').addEventListener('click', function() {
+            if (isMonitoring) {
+                isMonitoring = false;
+                clearInterval(monitoringInterval);
+                this.disabled = true;
+                document.getElementById('btn-start-monitoring').disabled = false;
+                
+                showToast({ title: 'Monitoreo Detenido', message: 'Se ha detenido la observación de vuelos', severity: 'info' });
+            }
+        });
 
+        const API_URL = "/api/optimize-route";
+        const map = L.map('map').setView([19.5, -99.5], 9);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        let mapLayer = null;
+        const planeMarkers = {};
+
+        const planeSvg = encodeURIComponent(`
+            <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'>
+              <path d='M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-1.5V21l-2 1v1l3-0.5L12 22v-7.5L21 16z' />
+            </svg>
+        `);
+        const planeIcon = L.icon({ iconUrl: `data:image/svg+xml;charset=utf-8,${planeSvg}`, iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -14] });
+
+        function animateMarkerTo(marker, newLatLng, duration = 700) {
+            if (!marker) return;
+            const start = marker.getLatLng();
+            const end = L.latLng(newLatLng[0], newLatLng[1]);
+            const startTime = performance.now();
+            function step(now) {
+                const t = Math.min(1, (now - startTime) / duration);
+                const lat = start.lat + (end.lat - start.lat) * t;
+                const lng = start.lng + (end.lng - start.lng) * t;
+                marker.setLatLng([lat, lng]);
+                if (t < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
+
+        function updateVuelosMap(vuelos) {
+            try {
+                if (!Array.isArray(vuelos)) return;
+                const seen = new Set();
+                vuelos.forEach(v => {
+                    // Accept both {lat, lon} and {latitude, longitude} shapes
+                    const lat = (v.lat !== undefined) ? v.lat : (v.latitude !== undefined ? v.latitude : null);
+                    const lon = (v.lon !== undefined) ? v.lon : (v.longitude !== undefined ? v.longitude : null);
+                    if (lat === null || lon === null) return;
+                    const id = v.icao24 || v.icao24_hex || (v.callsign || Math.random().toString(36).slice(2,8));
+                    seen.add(id);
+                    const label = `${v.callsign || 'N/A'} (${v.origin_country || v.origin || ''})`;
+                    const heading = v.heading || v.true_track || 0;
+                    if (planeMarkers[id]) {
+                        try { animateMarkerTo(planeMarkers[id], [lat, lon], 800); } catch (e) {}
+                        if (typeof planeMarkers[id].setRotationAngle === 'function') {
+                            planeMarkers[id].setRotationAngle(heading);
+                        } else {
+                            try { const el = planeMarkers[id].getElement(); if (el) el.style.transform = `rotate(${heading}deg)`; } catch (e) {}
+                        }
+                        if (typeof planeMarkers[id].setPopupContent === 'function') {
+                            planeMarkers[id].setPopupContent(label);
+                        }
+                    } else {
+                        const m = L.marker([lat, lon], {title: label, icon: planeIcon, rotationAngle: heading});
+                        m.bindPopup(label);
+                        m.addTo(map);
+                        try { const el = m.getElement(); if (el && heading) el.style.transform = `rotate(${heading}deg)`; } catch (e) {}
+                        planeMarkers[id] = m;
+                    }
+                });
+                Object.keys(planeMarkers).forEach(id => {
+                    if (!seen.has(id)) {
+                        try { map.removeLayer(planeMarkers[id]); } catch (e) {}
+                        delete planeMarkers[id];
+                    }
+                });
+            } catch (e) {
+                console.warn('updateVuelosMap error', e);
+            }
+        }
+        let analysisChart = null;
+
+        try {
+            const ctx = document.getElementById('analysisChart').getContext('2d');
+            analysisChart = new Chart(ctx, { type: 'bar', data: { labels: ['Probabilidad Riesgo', 'Probabilidad Éxito'], datasets: [{ label: 'Análisis de Incertidumbre', data: [0, 0], backgroundColor: ['rgba(255, 99, 132, 0.5)', 'rgba(75, 192, 192, 0.5)'], }] }, options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } } });
+        } catch (e) {
+            console.warn('Chart.js no disponible:', e);
+            analysisChart = null;
+        }
+
+        document.getElementById('optimization-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            try { unlockAudio(); } catch (e) { console.warn('unlockAudio falló:', e); }
+            function parseMaybeCoords(input) {
+                const s = (input || '').trim();
+                if (!s) return null;
+                const parts = s.split(',').map(p => p.trim());
+                if (parts.length === 2) {
+                    const a = parseFloat(parts[0]);
+                    const b = parseFloat(parts[1]);
+                    if (!isNaN(a) && !isNaN(b)) return [a, b];
+                }
+                return s;
+            }
+            const origen = parseMaybeCoords(document.getElementById('origen_input').value);
+            const destino = parseMaybeCoords(document.getElementById('destino_input').value);
+            const restriccionesTexto = (document.getElementById('restricciones').value || '').split(';').map(s => { const t = s.trim(); if (!t) return null; const parsed = parseMaybeCoords(t); return parsed; }).filter(item => item !== null);
+                const payload = { origen: origen, destino: destino, restricciones: restriccionesTexto, force_audio: !!document.getElementById('force_audio_checkbox').checked };
+            document.getElementById('ruta-km').innerText = 'Calculando...';
+            document.getElementById('status-wolfram').innerText = 'EJECUTANDO';
+            try {
+                const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const data = await response.json();
+                if (response.status !== 200 || data.error) {
+                    document.getElementById('ruta-km').innerText = 'ERROR';
+                    document.getElementById('status-wolfram').innerText = 'FALLO CRÍTICO';
+                    document.getElementById('gemini-analysis').innerText = data.error || 'Error desconocido en el servidor.';
+                    showToast({ title: 'Error en Cálculo', message: data.error || 'Error desconocido', severity: 'danger' });
+                    return;
+                }
+                document.getElementById('status-wolfram').innerText = 'COMPLETADO';
+                document.getElementById('ruta-km').innerText = `${data.ruta_km || 'N/A'} KM`;
+                if (data.is_critical_alert) {
+                    showToast({ title: 'Alerta Crítica', message: `Ruta óptima de ${data.ruta_km} km con alto riesgo detectado`, severity: 'danger' });
+                }
+                updateMap(data.ruta_coordenadas);
+                updateChart(data.analisis_simulacion);
+                document.getElementById('gemini-analysis').innerText = data.analisis_ia_texto || 'Análisis de IA pendiente...';
+            } catch (error) {
+                console.error("Error de red:", error);
+                document.getElementById('ruta-km').innerText = 'ERROR DE RED';
+                document.getElementById('status-wolfram').innerText = 'DESCONECTADO';
+                showToast({ title: 'Error de Red', message: 'No se pudo conectar con el servidor', severity: 'danger' });
+            }
+        });
+
+        function updateMap(ruta_coordenadas) {
+            if (!ruta_coordenadas || !ruta_coordenadas.length) return;
+            if (mapLayer) { map.removeLayer(mapLayer); }
+            const latlngs = ruta_coordenadas.map(p => [p.lat, p.lon]);
+            mapLayer = L.polyline(latlngs, {color: 'blue', weight: 4}).addTo(map);
+            map.fitBounds(mapLayer.getBounds());
+        }
+
+        function updateChart(analisis) {
+            if (!analysisChart) return;
+            if (analisis && analisis.riesgo_alto !== undefined) {
+                analysisChart.data.datasets[0].data = [analisis.riesgo_alto, analisis.riesgo_exito];
+                analysisChart.update();
+            }
+        }
+    </script>
+    <script>
+        function unlockAudio() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                if (!window.__unlockAudioCtx) {
+                    window.__unlockAudioCtx = new AudioCtx();
+                }
+                const ctx = window.__unlockAudioCtx;
+                if (ctx.state === 'suspended') {
+                    ctx.resume().catch(() => {});
+                }
+                try {
+                    const buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+                    const src = ctx.createBufferSource();
+                    src.buffer = buffer;
+                    src.connect(ctx.destination);
+                    src.start(0);
+                    setTimeout(() => { try { src.stop(); src.disconnect(); } catch (e) {} }, 50);
+                } catch (err) {}
+            } catch (e) {}
+        }
+        try {
+            window.addEventListener('load', () => {
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx && !window.__unlockAudioCtx) {
+                        window.__unlockAudioCtx = new AudioCtx();
+                        if (window.__unlockAudioCtx.state === 'suspended') {
+                            window.__unlockAudioCtx.resume().catch(() => {});
+                        }
+                    }
+                } catch (e) {}
+            });
+        } catch (e) {}
+
+        function playInlineAudioFromDataURL(dataUrl) {
+            try {
+                const audio = new Audio(dataUrl);
+                audio.autoplay = true;
+                audio.controls = false;
+                audio.style.display = 'none';
+                document.body.appendChild(audio);
+                audio.addEventListener('ended', () => { try { audio.remove(); } catch (e) {} });
+                setTimeout(() => { try { audio.remove(); } catch (e) {} }, 30000);
+                audio.play().catch(err => { console.warn('Autoplay posiblemente bloqueado; audio no reproducido automáticamente:', err); });
+            } catch (e) { console.error('Error reproduciendo audio inline:', e); }
+        }
+
+        (function() {
+            const originalFetch = window.fetch.bind(window);
+            window.fetch = async function(resource, init) {
+                const response = await originalFetch(resource, init);
+                try {
+                    const url = (typeof resource === 'string') ? resource : (resource && resource.url);
+                    if (url && (url.includes('/api/optimize-route') || url.includes('/api/emergency-route') || url.includes('/api/vuelos'))) {
+                        const clone = response.clone();
+                        const data = await clone.json().catch(() => null);
+                        if (data && data.audio_alert_data) {
+                            playInlineAudioFromDataURL(data.audio_alert_data);
+                        }
+                    }
+                } catch (e) { console.warn('Error en fetch-wrapper para reproducción de audio:', e); }
+                return response;
+            };
+        })();
     </script>
 </body>
 </html>
