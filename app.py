@@ -59,12 +59,9 @@ except Exception:
 KERNEL_PATH = os.environ.get("WOLFRAM_KERNEL_PATH", r"C:\Program Files\Wolfram Research\Wolfram\14.3\WolframKernel.exe")
 
 # B. APIs Externas (Se recuperan de las variables de entorno)
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-# Leer la clave de ElevenLabs correctamente desde la variable de entorno
+# Nota: OpenRouter fue removido del proyecto — las funciones que
+# dependían de él ahora devuelven resultados por defecto.
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
-
-# C. Configuración de OpenRouter
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Modo de desarrollo: si se activa, el endpoint devuelve rutas mock sin necesitar Wolfram
 DEV_MOCK = os.environ.get("DEV_MOCK", "0") == "1"
@@ -335,72 +332,25 @@ if _HAS_CORS:
 
 
 def call_gemini_analysis(route_data_str):
-    if not OPENROUTER_API_KEY:
-        return "OpenRouter Desconectado. (Clave API no configurada)"
-    if isinstance(route_data_str, dict):
-        prompt_text = f"Eres un experto en seguridad aérea y optimización de rutas. Analiza este escenario de tráfico aéreo:\n\n{json.dumps(route_data_str, indent=2)}\n\nProporciona:\n1. EVALUACIÓN DE RIESGO (Crítico/Alto/Medio/Bajo)\n2. FACTORES CLAVE que afectan la seguridad\n3. RECOMENDACIONES ACCIONABLES para el controlador\n4. CONFIANZA DEL MODELO (0-100%)"
-    else:
-        prompt_text = (
-            f"Eres un analista de seguridad aérea y modelador de riesgos. Analiza los siguientes datos numéricos de cálculo de ruta geodésica (Wolfram): {route_data_str}. "
-            "Tu tarea es generar un informe contextual y accionable. "
-            "1. RESUMEN CRÍTICO (Tono urgente, máximo 3 oraciones): Identifica la principal causa de riesgo (ej: 'ruta excesivamente larga' o 'múltiples restricciones'). "
-            "2. RECOMENDACIONES DE MITIGACIÓN (Lista de 3 puntos): Ofrece acciones concretas y verificables para el piloto que minimicen el riesgo. "
-            "3. CONFIANZA DEL ANÁLISIS: % de confianza en la recomendación basado en datos disponibles. "
-            "Formatea tu respuesta en un solo bloque de texto claro y profesional."
-        )
+    """
+    Stub para análisis de IA: OpenRouter fue removido del proyecto.
+    Devuelve un texto informativo que puede ser mostrado en la UI.
+    Si en el futuro quieres conectar otro proveedor, reemplaza esta
+    implementación por la integración correspondiente.
+    """
     try:
-        headers = {"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json"}
-        payload = {"model": "google/gemini-2.5-pro", "messages": [{"role": "user", "content": prompt_text}]}
-        response = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=15)
-        response.raise_for_status()
-        data = response.json()
-        try:
-            return data['choices'][0]['message']['content']
-        except Exception:
-            logger.error("Respuesta inesperada de OpenRouter: %s", data)
-            return "Error en la llamada a OpenRouter: respuesta inesperada."
-    except requests.exceptions.RequestException as e:
-        logger.error("Error en la llamada a OpenRouter: %s", e)
-        return "Error en la llamada a OpenRouter: No se pudo obtener el análisis."
+        # Devuelve un mensaje por defecto para mantener compatibilidad con la UI
+        return "Análisis IA deshabilitado: OpenRouter eliminado del proyecto."
+    except Exception as e:
+        logger.error("call_gemini_analysis interno falló: %s", e)
+        return "Análisis IA no disponible."
 
 
 def call_geocode_address(address):
-    if not OPENROUTER_API_KEY:
-        logger.warning("Geocoding: OpenRouter API key no configurada.")
-        return None
-    content = None
-    if OPENROUTER_API_KEY:
-        prompt = ("Devuelve SOLO un JSON válido con las claves 'lat' y 'lon' (valores numéricos).\n" "Respuesta ejemplo: ```{\"lat\": 19.4326, \"lon\": -99.1332}```\n" f"Dirección a geocodificar: {address}\n\nSi no puedes geocodificar, responde `null`." )
-        try:
-            headers = {"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json"}
-            payload = {"model": "google/gemini-2.5-pro", "messages": [{"role": "user", "content": prompt}]}
-            resp = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=15)
-            resp.raise_for_status()
-            try:
-                data = resp.json()
-                if isinstance(data, dict) and data.get('choices'):
-                    content = data['choices'][0]['message'].get('content', '')
-                else:
-                    content = json.dumps(data)
-            except Exception:
-                content = resp.text
-            m = re.search(r"\{[^}]*\}", content)
-            if m:
-                try:
-                    parsed = json.loads(m.group(0))
-                    if 'lat' in parsed and 'lon' in parsed:
-                        return float(parsed['lat']), float(parsed['lon'])
-                except Exception:
-                    pass
-            floats = re.findall(r"-?\d+\.\d+", content or "")
-            if len(floats) >= 2:
-                try:
-                    return float(floats[0]), float(floats[1])
-                except Exception:
-                    pass
-            logger.warning("OpenRouter no pudo geocodificar '%s'. Respuesta: %s", address, (content or '')[:300])
-        except requests.exceptions.RequestException as e:
-            logger.warning("OpenRouter geocoding request failed: %s", e)
+    """
+    Geocodifica una dirección usando Nominatim (OpenStreetMap).
+    OpenRouter fue removido; esta función usa únicamente Nominatim.
+    """
     try:
         nominatim_url = "https://nominatim.openstreetmap.org/search"
         params = { 'q': address, 'format': 'json', 'limit': 1 }
@@ -415,7 +365,7 @@ def call_geocode_address(address):
             return lat, lon
     except Exception as e:
         logger.warning("Nominatim geocoding failed for '%s': %s", address, e)
-    logger.warning("Geocoding falló para '%s' con ambos servicios.", address)
+    logger.warning("Geocoding falló para '%s'.", address)
     return None
 
 
