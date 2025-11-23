@@ -30,17 +30,8 @@ TakeYouOff es una aplicación web para monitoreo y soporte de planificación de 
 - `DEV_MOCK` — cuando está activado, muchas respuestas de IA y de vuelos se simulan para pruebas.
 
 
-
-**Notas importantes de seguridad y recomendaciones** 🔐
-- Si expusiste claves (por ejemplo `GOOGLE_API_KEY`) en esta conversación o en el historial, revócalas y genera nuevas. Nunca subas secretos al repo.
-- Para despliegues en producción, usa un gestor seguro de secretos (Azure Key Vault, AWS Secrets Manager, HashiCorp Vault, etc.).
-
 **Ideas / próximos pasos** ✨
 - Integrar persistencia (SQLite o una DB ligera) para logs y trazas de alertas.
 - Añadir autenticación y control de accesos en la UI/API.
 - Mejorar experiencia de audio (pre-caching, indicación visual cuando audio no puede reproducirse por autoplay).
 
-¿Quieres que actualice este README con instrucciones más específicas (por ejemplo: pasos para Windows, Linux, o un script de PowerShell para iniciar todo)? Si quieres, también puedo crear un pequeño script `start_local.ps1` que prepare el entorno y arranque el servidor y (opcionalmente) el microservicio.
-
----
-_Archivo generado y actualizado por el equipo de desarrollo. Si falta algo o quieres que lo haga más técnico (comandos exactos para CI/CD, Docker Compose, o empaquetado), dime y lo añado._
