@@ -783,6 +783,17 @@
                 updateMap(data.ruta_coordenadas);
                 updateChart(data.analisis_simulacion);
                 document.getElementById('gemini-analysis').innerText = data.analisis_ia_texto || 'Análisis de IA pendiente...';
+                // Reproducir audio si el servidor devolvió audio embebido o URL
+                try {
+                    if (data.audio_alert_data) {
+                        // audio_alert_data puede ser data:audio/... o ruta /static/audio/...
+                        await playAlertAudio(data.audio_alert_data);
+                    } else if (data.audio_alert_url) {
+                        await playAlertAudio(data.audio_alert_url);
+                    }
+                } catch (e) {
+                    console.warn('playAlertAudio falló tras optimize-route:', e);
+                }
             } catch (error) {
                 console.error("Error de red:", error);
                 document.getElementById('ruta-km').innerText = 'ERROR DE RED';
